@@ -6,7 +6,13 @@ ENV TZ="$TZ"
 ARG CLAUDE_CODE_VERSION=latest
 ARG USERNAME=coder
 
-# Install basic development tools and iptables/ipset
+LABEL org.opencontainers.image.description="Sandboxed Docker containers for AI coding assistants with isolated project environments"
+LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.source="https://github.com/skwashd/ccodolo"
+LABEL org.opencontainers.image.title="CCoDoLo"
+LABEL org.opencontainers.image.url="https://github.com/skwashd/ccodolo"
+LABEL org.opencontainers.image.vendor="skwashd"
+
 RUN apt update \
   && apt upgrade -y \
   && apt install -y --no-install-recommends \
