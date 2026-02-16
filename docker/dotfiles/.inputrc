@@ -1,0 +1,21 @@
+# GNU Readline configuration for bash
+# Used by bash and other readline-enabled tools
+
+# Shift+Enter → Ctrl+J mapping (XTerm sequence)
+# Note: This is terminal-dependent and may not work in all terminals
+"\e[13;2u": "\C-j"
+
+# Better tab completion
+set completion-ignore-case on
+set show-all-if-ambiguous on
+set show-all-if-unmodified on
+
+# Display completions using different colors for file types
+set colored-stats on
+set colored-completion-prefix on
+
+# Show common prefix before listing completions
+set menu-complete-display-prefix on
+
+# Use visible bell instead of audible
+set bell-style visible

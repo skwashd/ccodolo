@@ -1,0 +1,308 @@
+#!/bin/sh
+
+set -euo pipefail
+# IFS=$'\n\t'
+
+usage() {
+    local name=$(basename "$0")
+    cat >&2 << EOF
+Usage:
+  $name --project <project-name> [OPTIONS]
+
+Options:
+  --project <name>     Project name (required)
+  --workdir <path>     Working directory (default: current directory)
+  --agent <name>       Agent to use: claude, copilot, gemini, codex, opencode (default: claude)
+  --create-new         Create new project without confirmation prompt
+  --exec               Attach to existing container instead of creating new one
+  --help, -h           Show this help message
+EOF
+    exit $1
+}
+
+# Update a config value in ccodolo.config file
+update_config_value() {
+    local config_file="$1"
+    local key="$2"
+    local value="$3"
+    
+    if [ ! -f "$config_file" ]; then
+        echo "${key}=\"${value}\"" > "$config_file"
+    elif grep -q "^${key}=" "$config_file"; then
+        if [ "$(uname)" = "Darwin" ]; then
+            sed -i '' "s|^${key}=.*|${key}=\"${value}\"|" "$config_file"
+        else
+            sed -i "s|^${key}=.*|${key}=\"${value}\"|" "$config_file"
+        fi
+    else
+        echo "${key}=\"${value}\"" >> "$config_file"
+    fi
+}
+
+# Load configuration from ccodolo.config if it exists
+load_config() {
+    local project_path="$1"
+    local config_file="${project_path}/ccodolo.config"
+    
+    if [ -f "$config_file" ]; then
+        . "$config_file"
+    fi
+}
+
+# Get bind mount flags for the specified agent
+get_bind_mounts() {
+    local project_path="$1"
+    local agent="$2"
+    local mounts=""
+    
+    # Common mounts for all agents
+    mounts="-v ${project_path}/commandhistory:/commandhistory"
+    mounts="${mounts} -v ${project_path}/common:/home/coder/project"
+    
+    # Agent-specific mounts
+    case "$agent" in
+        claude)
+            mounts="${mounts} -v ${project_path}/.claude:/home/coder/.claude"
+            if [ -f "${project_path}/.claude.json" ]; then
+                mounts="${mounts} -v ${project_path}/.claude.json:/home/coder/.claude.json"
+            fi
+            if [ -d "${project_path}/.claude-plugin" ]; then
+                mounts="${mounts} -v ${project_path}/.claude-plugin:/home/coder/.claude-plugin"
+            fi
+            ;;
+        copilot)
+            mounts="${mounts} -v ${project_path}/.copilot:/home/coder/.copilot"
+            ;;
+        gemini)
+            mounts="${mounts} -v ${project_path}/.gemini:/home/coder/.gemini"
+            ;;
+        codex)
+            mounts="${mounts} -v ${project_path}/.codex:/home/coder/.codex"
+            ;;
+        opencode)
+            mounts="${mounts} -v ${project_path}/.opencode:/home/coder/.opencode"
+            ;;
+        *)
+            echo "WARNING: Unknown agent '$agent', using default mounts only" >&2
+            ;;
+    esac
+    
+    echo "$mounts"
+}
+
+# Create project directory with confirmation and template support
+create_project_directory() {
+    local project_path="$1"
+    local agent="$2"
+    local create_new="$3"
+    
+    if [ -d "$project_path" ]; then
+        return 0
+    fi
+    
+    # Prompt for confirmation unless --create-new was specified
+    if [ "$create_new" -eq 0 ]; then
+        printf "Project directory does not exist. Create new project '%s'? (y/n) " "$(basename "$project_path")" >&2
+        read -r answer
+        case "$answer" in
+            y|Y|yes|YES)
+                ;;
+            *)
+                echo "Aborted." >&2
+                exit 3
+                ;;
+        esac
+    fi
+    
+    echo "Creating project directory at $project_path" >&2
+    mkdir -p "$project_path"
+    
+    # Copy template if it exists
+    template_dir="${HOME}/.ccodolo/template"
+    if [ -d "$template_dir" ]; then
+        echo "Copying template from $template_dir" >&2
+        cp -r "${template_dir}/"* "$project_path/" 2>/dev/null || true
+        cp -r "${template_dir}/".[!.]* "$project_path/" 2>/dev/null || true
+    fi
+    
+    mkdir -p "${project_path}/commandhistory"
+    mkdir -p "${project_path}/common"
+    
+    case "$agent" in
+        claude)
+            mkdir -p "${project_path}/.claude"
+            echo '{}' > "${project_path}/.claude.json"
+            ;;
+        copilot)
+            mkdir -p "${project_path}/.copilot"
+            ;;
+        gemini)
+            mkdir -p "${project_path}/.gemini"
+            ;;
+        codex)
+            mkdir -p "${project_path}/.codex"
+            ;;
+        opencode)
+            mkdir -p "${project_path}/.opencode"
+            ;;
+    esac
+}
+
+agent="claude"
+project=""
+workdir="$(pwd)"
+docker_exec=0
+create_new=0
+agent_from_cmdline=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --agent)
+            shift
+            agent="$1"
+            agent_from_cmdline=1
+            ;;
+        --create-new)
+            create_new=1
+            ;;
+        --exec)
+            docker_exec=1
+            ;;
+        --help|-h)
+            usage 0
+            ;;
+        --project)
+            shift
+            project="$1"
+            ;;
+        --workdir)
+            shift
+            workdir="$1"
+            ;;
+        *)
+            break
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$project" ]; then
+    echo "ERROR: --project is required\n" >&2
+    usage 1
+fi
+
+project_path="${HOME}/.ccodolo/projects/$project"
+
+project_exists=1
+if [ ! -d "$project_path" ]; then
+    project_exists=0
+fi
+
+# Preserve command line agent if specified
+if [ "$agent_from_cmdline" -eq 1 ]; then
+    cmdline_agent="$agent"
+fi
+
+# Load config from project (may override agent)
+load_config "$project_path"
+
+# Restore command line agent if it was specified
+if [ "$agent_from_cmdline" -eq 1 ]; then
+    agent="$cmdline_agent"
+fi
+
+create_project_directory "$project_path" "$agent" "$create_new"
+
+if [ ! -d "${project_path}/common" ]; then
+    mkdir -p "${project_path}/common"
+fi
+
+# Write agent to config only if this is a new project and agent was specified
+if [ "$project_exists" -eq 0 ] && [ "$agent_from_cmdline" -eq 1 ]; then
+    update_config_value "${project_path}/ccodolo.config" "agent" "$agent"
+fi
+
+# For copilot, configure trusted folders in the project's .copilot/config.json
+if [ "$agent" = "copilot" ]; then
+    copilot_config="${project_path}/.copilot/config.json"
+    mkdir -p "${project_path}/.copilot"
+    
+    project_dir="/workspace/${project}"
+    
+    if [ -f "$copilot_config" ]; then
+        # Update existing config
+        jq --arg dir "$project_dir" \
+           'if .trusted_folders then 
+              if (.trusted_folders | contains([$dir])) then . 
+              else .trusted_folders += [$dir] end
+            else .trusted_folders = [$dir] end' \
+           "$copilot_config" > "${copilot_config}.tmp" && mv "${copilot_config}.tmp" "$copilot_config"
+    else
+        # Create new config
+        echo "{\"trusted_folders\":[\"$project_dir\"]}" | jq '.' > "$copilot_config"
+    fi
+fi
+
+# For gemini, configure context in the project's .gemini/settings.json
+if [ "$agent" = "gemini" ]; then
+    gemini_config="${project_path}/.gemini/settings.json"
+    mkdir -p "${project_path}/.gemini"
+    
+    project_dir="/workspace/${project}"
+    
+    if [ -f "$gemini_config" ]; then
+        # Update existing config
+        jq --arg dir "$project_dir" \
+           '.context = (.context // {}) | 
+            .context.includeDirectories = ((.context.includeDirectories // []) + [$dir] | unique) |
+            .context.fileName = ["AGENTS.md", "GEMINI.md"]' \
+           "$gemini_config" > "${gemini_config}.tmp" && mv "${gemini_config}.tmp" "$gemini_config"
+    else
+        # Create new config
+        jq -n --arg dir "$project_dir" \
+           '{context: {includeDirectories: [$dir], fileName: ["AGENTS.md", "GEMINI.md"]}}' \
+           > "$gemini_config"
+    fi
+fi
+
+if [ ! -d "$workdir" ]; then
+    echo "ERROR: --workdir doesn't exist: $workdir\n" >&2
+    usage 2
+fi
+
+workdir_basename="$(basename $workdir)"
+namespace="ccodolo-${project}-${workdir_basename}"
+if [ $docker_exec -eq 1 ]; then
+    containers=$(docker container ls -a --format "{{.Names}}:{{.ID}}" | grep "^${namespace}")
+    if [ -z "$containers" ]; then
+        echo "ERROR: No containers found for namespace: $namespace\n" >&2
+        exit 4
+    fi
+
+    if [ $(echo "$containers" | wc -l) -gt 1 ]; then
+        echo "ERROR: Multiple containers found for namespace: $namespace\n" >&2
+        echo "$containers" >&2
+        exit 8
+    fi
+
+    container_id=$(echo "$containers" | cut -d: -f2)
+    if [ -n "$container_id" ]; then
+        echo "Attaching to container: $container_id" >&2
+        docker exec -it "$container_id" /bin/zsh
+        exit $?
+    else
+        echo "ERROR: Unable to determine container ID for namespace: $namespace\n" >&2
+        exit 16
+    fi
+fi
+
+workspace_dir="/workspace/${project}/${workdir_basename}"
+
+bind_mounts=$(get_bind_mounts "$project_path" "$agent")
+
+docker run --rm -it \
+    -v "${workdir}":"${workspace_dir}" \
+    ${bind_mounts} \
+    --name "${namespace}-$(date +%Y%m%d%H%M)" \
+    -w "${workspace_dir}" \
+    ccodolo:latest "${agent}"

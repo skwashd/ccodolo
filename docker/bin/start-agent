@@ -1,0 +1,85 @@
+#!/bin/sh
+
+# Multi-agent entrypoint script for coding assistants
+# Supports: claude, codex, copilot, gemini, opencode
+
+set -e
+
+AGENT="${1:-}"
+
+if [ -z "$AGENT" ]; then
+    echo "Error: No agent specified"
+    echo ""
+    echo "Usage: start-agent.sh <agent>"
+    echo ""
+    echo "Available agents:"
+    echo "  claude   - Anthropic Claude Code"
+    echo "  codex    - OpenAI Codex"
+    echo "  copilot  - GitHub Copilot CLI"
+    echo "  gemini   - Google Gemini CLI"
+    echo "  opencode - OpenCode AI"
+    echo ""
+    echo "Example: start-agent claude"
+    exit 1
+fi
+
+case "$AGENT" in
+    claude)
+        echo "Starting Claude Code..."
+        if ! command -v claude >/dev/null 2>&1; then
+            echo "Error: claude command not found"
+            echo "Install: curl -fsSL https://claude.ai/install.sh | bash"
+            echo "Documentation: https://claude.ai"
+            exit 4
+        fi
+        exec claude --dangerously-skip-permissions
+        ;;
+    codex)
+        echo "Starting OpenAI Codex..."
+        if ! command -v codex >/dev/null 2>&1; then
+            echo "Error: codex command not found"
+            echo "Install: npm install -g @openai/codex"
+            echo "Documentation: https://openai.com/codex"
+            exit 8
+        fi
+        exec codex --dangerously-bypass-approvals-and-sandbox
+        ;;
+    copilot)
+        echo "Starting GitHub Copilot..."
+        if ! command -v copilot >/dev/null 2>&1; then
+            echo "Error: copilot command not found"
+            echo "Install: npm install -g @github/copilot"
+            echo "Documentation: https://github.com/github/copilot-cli"
+            exit 16
+        fi
+        echo "Authentication: Requires GitHub account with Copilot subscription"
+        echo "Set GH_TOKEN environment variable or authenticate via 'gh auth login'"
+        exec copilot --allow-all
+        ;;
+    gemini)
+        echo "Starting Google Gemini..."
+        if ! command -v gemini >/dev/null 2>&1; then
+            echo "Error: gemini command not found"
+            echo "Install: npm install -g @google/gemini-cli"
+            echo "Documentation: https://ai.google.dev/gemini-api"
+            exit 32
+        fi
+        exec gemini --approval-mode=yolo
+        ;;
+    opencode)
+        echo "Starting OpenCode AI..."
+        if ! command -v opencode >/dev/null 2>&1; then
+            echo "Error: opencode command not found"
+            echo "Install: npm install -g opencode-ai"
+            echo "Documentation: https://opencode.ai"
+            exit 64
+        fi
+        exec opencode
+        ;;
+    *)
+        echo "Error: Unknown agent '$AGENT'"
+        echo ""
+        echo "Available agents: claude, codex, copilot, gemini, opencode"
+        exit 2
+        ;;
+esac
