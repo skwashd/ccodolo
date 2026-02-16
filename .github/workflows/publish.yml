@@ -1,0 +1,55 @@
+name: Release to GHCR
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    # Sunday 01:23 AM Melbourne time (approximately 14:23 UTC Saturday during AEDT, 15:23 UTC Saturday during AEST)
+    - cron: '23 14 * * 6'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate timestamp tag
+        id: timestamp
+        run: echo "tag=$(date -u '+%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker
+          file: ./docker/docker/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.timestamp.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image published
+        run: |
+          echo "✓ Image published to ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.timestamp.outputs.tag }}"
+          echo "Pull command: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.timestamp.outputs.tag }}"

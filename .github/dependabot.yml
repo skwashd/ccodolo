@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:07"
+      timezone: "Australia/Melbourne"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
