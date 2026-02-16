@@ -12,7 +12,7 @@ Usage:
 Options:
   --project <name>     Project name (required)
   --workdir <path>     Working directory (default: current directory)
-  --agent <name>       Agent to use: claude, copilot, gemini, codex, opencode (default: claude)
+  --agent <name>       Agent to use: claude, codex, copilot, gemini, kiro, opencode (default: claude)
   --create-new         Create new project without confirmation prompt
   --exec               Attach to existing container instead of creating new one
   --help, -h           Show this help message
@@ -82,6 +82,9 @@ get_bind_mounts() {
         opencode)
             mounts="${mounts} -v ${project_path}/.opencode:/home/coder/.opencode"
             ;;
+        kiro)
+            mounts="${mounts} -v ${project_path}/.kiro:/home/coder/.kiro"
+            ;;
         *)
             echo "WARNING: Unknown agent '$agent', using default mounts only" >&2
             ;;
@@ -144,6 +147,9 @@ create_project_directory() {
             ;;
         opencode)
             mkdir -p "${project_path}/.opencode"
+            ;;
+        kiro)
+            mkdir -p "${project_path}/.kiro"
             ;;
     esac
 }
@@ -262,6 +268,22 @@ if [ "$agent" = "gemini" ]; then
         jq -n --arg dir "$project_dir" \
            '{context: {includeDirectories: [$dir], fileName: ["AGENTS.md", "GEMINI.md"]}}' \
            > "$gemini_config"
+    fi
+fi
+
+# For kiro, disable telemetry in the project's .kiro/settings/cli.json
+if [ "$agent" = "kiro" ]; then
+    kiro_settings_dir="${project_path}/.kiro/settings"
+    kiro_config="${kiro_settings_dir}/cli.json"
+    mkdir -p "$kiro_settings_dir"
+    
+    if [ -f "$kiro_config" ]; then
+        # Update existing config to disable telemetry
+        jq '."telemetry.enabled" = false' \
+           "$kiro_config" > "${kiro_config}.tmp" && mv "${kiro_config}.tmp" "$kiro_config"
+    else
+        # Create new config with telemetry disabled
+        echo '{"telemetry.enabled":false}' | jq '.' > "$kiro_config"
     fi
 fi
 

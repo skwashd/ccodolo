@@ -17,6 +17,7 @@ if [ -z "$AGENT" ]; then
     echo "  codex    - OpenAI Codex"
     echo "  copilot  - GitHub Copilot CLI"
     echo "  gemini   - Google Gemini CLI"
+    echo "  kiro     - Kiro AI CLI"
     echo "  opencode - OpenCode AI"
     echo ""
     echo "Example: start-agent claude"
@@ -66,6 +67,17 @@ case "$AGENT" in
         fi
         exec gemini --approval-mode=yolo
         ;;
+    kiro)
+        echo "Starting Kiro CLI..."
+        if ! command -v kiro-cli >/dev/null 2>&1; then
+            echo "Error: kiro-cli command not found"
+            echo "Install: curl -fsSL https://cli.kiro.dev/install | bash"
+            echo "Documentation: https://kiro.dev/docs/cli/"
+            exit 128
+        fi
+        export Q_FAKE_IS_REMOTE=1 # Force device flow for auth
+        exec kiro-cli chat --trust-all-tools
+        ;;
     opencode)
         echo "Starting OpenCode AI..."
         if ! command -v opencode >/dev/null 2>&1; then
@@ -79,7 +91,7 @@ case "$AGENT" in
     *)
         echo "Error: Unknown agent '$AGENT'"
         echo ""
-        echo "Available agents: claude, codex, copilot, gemini, opencode"
+        echo "Available agents: claude, codex, copilot, gemini, kiro, opencode"
         exit 2
         ;;
 esac

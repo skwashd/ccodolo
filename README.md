@@ -45,6 +45,7 @@ The container will start with Claude Code (the default agent). Your working dire
 - **codex** - OpenAI Codex
 - **copilot** - GitHub Copilot CLI
 - **gemini** - Google Gemini CLI
+- **kiro** - Kiro AI CLI
 - **opencode** - OpenCode AI
 
 ## Command
@@ -59,7 +60,7 @@ ccodolo --project <project-name> [OPTIONS]
 
 - `--project <name>` - Project name (required). Namespace in `~/.ccodolo/projects/` where agent configuration is stored.
 - `--workdir <path>` - Working directory (default: current directory)
-- `--agent <name>` - Agent to use: claude, copilot, gemini, codex, opencode (default: claude or from config)
+- `--agent <name>` - Agent to use: claude, copilot, codex, gemini, kiro, opencode (default: claude or from config)
 - `--create-new` - Create new project without confirmation prompt
 - `--exec` - Attach to existing container instead of creating new one
 - `--help, -h` - Show help message
@@ -113,9 +114,10 @@ ccodolo --project myapp --agent gemini
 Each agent stores its configuration in project-specific directories:
 
 - **claude**: `~/.ccodolo/projects/<project>/.claude/`, `.claude.json`, `.claude-plugin/`
+- **codex**: `~/.ccodolo/projects/<project>/.codex/`
 - **copilot**: `~/.ccodolo/projects/<project>/.copilot/`
 - **gemini**: `~/.ccodolo/projects/<project>/.gemini/`
-- **codex**: `~/.ccodolo/projects/<project>/.codex/`
+- **kiro**: `~/.ccodolo/projects/<project>/.kiro/`
 - **opencode**: `~/.ccodolo/projects/<project>/.opencode/`
 
 Only the selected agent's directories are mounted into the container.
@@ -250,6 +252,12 @@ Each agent requires authentication. Credentials are stored in agent-specific dir
   - Login with Google (OAuth) inside container - Free tier: 60 req/min, 1000 req/day
   - Configure API key within the container environment
 - **Documentation**: https://ai.google.dev/gemini-api
+
+### Kiro
+- **Requirements**: Kiro account
+- **Config directory**: `~/.kiro/`
+- **Authentication**: Uses device flow authentication on first launch (no browser required)
+- **Documentation**: https://kiro.dev/docs/cli/
 
 ### OpenCode AI
 - **Requirements**: See documentation for specific requirements

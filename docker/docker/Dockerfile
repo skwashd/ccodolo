@@ -35,6 +35,7 @@ RUN apt update \
     iproute2 \
     jq \
     less \
+    libfuse2 \
     man-db \
     nano \
     nodejs \
@@ -49,11 +50,9 @@ RUN apt update \
     zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/* \
   && adduser $USERNAME --shell /bin/zsh --disabled-password \
-  && mkdir /commandhistory \
+  && mkdir -p /workspace /home/$USERNAME/.claude /home/$USERNAME/.local/bin /commandhistory \
   && touch /commandhistory/.bash_history /commandhistory/.zsh_history \
-  && chown -R $USERNAME /commandhistory \
-  && mkdir -p /workspace /home/$USERNAME/.claude /home/$USERNAME/.local/bin \
-  && chown -R $USERNAME:$USERNAME /workspace /home/$USERNAME \
+  && chown -R $USERNAME:$USERNAME /workspace /home/$USERNAME /commandhistory \
   && cd /tmp \
   && curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip" \
   && unzip awscliv2.zip \
@@ -61,11 +60,11 @@ RUN apt update \
   && rm -rf /tmp/awscliv2* aws/
 
 
-COPY dotfiles/* /home/$USERNAME/
-COPY bin/start-agent /home/$USERNAME/.local/bin/start-agent
-
 USER $USERNAME
 WORKDIR /workspace
+
+COPY dotfiles/* /home/$USERNAME/
+COPY bin/start-agent /home/$USERNAME/.local/bin/start-agent
 
 ENV SHELL=/bin/zsh
 
@@ -75,6 +74,7 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
     -p git -p fzf -x \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
   && curl -fsSL https://claude.ai/install.sh | bash \
+  && curl -fsSL https://cli.kiro.dev/install | bash \
   && npm config set prefix '~/.local/' \
   && npm config set cache '~/.npm' \
   && npm config set global true \
