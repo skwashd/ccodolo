@@ -2,6 +2,7 @@ FROM public.ecr.aws/docker/library/debian:trixie-slim
 
 ARG TZ
 ENV TZ="$TZ"
+ENV DEBIAN_FRONTEND=noninteractive
 
 ARG CLAUDE_CODE_VERSION=latest
 ARG USERNAME=coder
@@ -19,6 +20,7 @@ RUN apt update \
     ca-certificates \
     curl \
     gnupg2 \
+    locales \
     lsb-release \
     wget \
   && wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null \
@@ -49,6 +51,11 @@ RUN apt update \
     vim \
     zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/* \
+  && dpkg-reconfigure tzdata locales \
+  && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
+  && echo 'LANG="en_US.UTF-8"' > /etc/default/locale \
+  && dpkg-reconfigure locales \
+  && update-locale LANG=en_US.UTF-8 \
   && adduser $USERNAME --shell /bin/zsh --disabled-password \
   && mkdir -p /workspace /home/$USERNAME/.claude /home/$USERNAME/.local/bin /commandhistory \
   && touch /commandhistory/.bash_history /commandhistory/.zsh_history \
