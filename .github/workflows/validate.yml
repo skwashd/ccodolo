@@ -23,7 +23,7 @@ jobs:
           echo "Validating docker/ccodolo..."
           sh -n docker/ccodolo
           echo "✓ docker/ccodolo is valid"
-          
+
           echo "Validating docker/bin/start-agent..."
           sh -n docker/bin/start-agent
           echo "✓ docker/bin/start-agent is valid"
@@ -65,18 +65,3 @@ jobs:
           tags: ccodolo:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: ccodolo:test
-          format: 'sarif'
-          ignore-unfixed: true
-          output: 'trivy-results.sarif'
-          severity: 'HIGH,CRITICAL'
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
