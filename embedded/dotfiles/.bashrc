@@ -1,7 +1,7 @@
 # Bash configuration for coding agent environment
 
 # Configure PATH for all installed tools
-# - /home/coder/.local/bin: start-agent.sh, claude, uv, npm global packages
+# - /home/coder/.local/bin: claude, uv, npm global packages
 export PATH="/home/coder/.local/bin:$PATH"
 
 # Bash history configuration

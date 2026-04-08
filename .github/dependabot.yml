@@ -3,10 +3,29 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
       time: "06:07"
       timezone: "Australia/Melbourne"
+    cooldown:
+      default-days: 1
+    labels:
+      - "dependencies"
+      - "actions"
     commit-message:
       prefix: "ci"
+      include: "scope"
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "06:07"
+      timezone: "Australia/Melbourne"
+    cooldown:
+      default-days: 1
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "deps"
       include: "scope"
