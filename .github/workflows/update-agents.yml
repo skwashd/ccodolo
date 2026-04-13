@@ -1,0 +1,225 @@
+name: Update Agents
+
+# Daily check for new releases of the npm-based agents pinned in
+# internal/agent/agent.go. Opens one combined PR for minor/patch bumps and a
+# separate PR for each major bump. Versions published in the last 24 hours are
+# excluded (cool-down, similar to dependabot's cooldown feature).
+#
+# Note: PRs are created with the default GITHUB_TOKEN, which means they will
+# NOT trigger validate.yml automatically. To run CI on a PR opened by this
+# workflow, push an empty commit or close-and-reopen the PR.
+
+on:
+  schedule:
+    - cron: "7 20 * * *"
+
+permissions: {}
+
+jobs:
+  update:
+    name: Check npm for agent updates
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Find updates and open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Map of npm package -> short agent name used in PR titles/branches.
+          # Keep in sync with internal/agent/agent.go (npm-based agents only).
+          declare -A AGENTS=(
+            ["@anthropic-ai/claude-code"]="claude"
+            ["@openai/codex"]="codex"
+            ["@github/copilot"]="copilot"
+            ["@google/gemini-cli"]="gemini"
+            ["opencode-ai"]="opencode"
+          )
+
+          AGENT_FILE="internal/agent/agent.go"
+
+          # 24-hour cool-down cutoff as a unix epoch.
+          CUTOFF=$(date -u -d '24 hours ago' +%s)
+
+          # Authenticate git operations via the token-in-URL pattern. We avoid
+          # `persist-credentials: true` and never write the token to git config,
+          # so the credential is only present on the explicit fetch/push calls
+          # that need it.
+          AUTH_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+          git fetch "$AUTH_REMOTE" main:refs/remotes/origin/main
+
+          # Read the currently pinned version (without the "v" prefix) from agent.go.
+          # The pattern in agent.go is e.g. `@anthropic-ai/claude-code@v2.1.101`.
+          current_version() {
+            local pkg="$1"
+            grep -oE "${pkg}@v[0-9]+\.[0-9]+\.[0-9]+" "$AGENT_FILE" \
+              | head -1 \
+              | sed -E "s|.*@v||"
+          }
+
+          # Highest stable (x.y.z) version on the npm registry whose publish
+          # time is at least 24h old. Pre-releases are filtered out.
+          eligible_version() {
+            local pkg="$1"
+            curl -fsSL "https://registry.npmjs.org/${pkg}" \
+              | jq -r --argjson cutoff "$CUTOFF" '
+                  .time
+                  | to_entries
+                  | map(select(.key | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")))
+                  | map(select(
+                      (.value | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) <= $cutoff
+                    ))
+                  | map(.key)
+                  | .[]
+                ' \
+              | sort -V \
+              | tail -1
+          }
+
+          # major | minor | patch | none
+          classify_bump() {
+            local cur="$1" new="$2"
+            local c1 c2 c3 n1 n2 n3
+            IFS=. read -r c1 c2 c3 <<<"$cur"
+            IFS=. read -r n1 n2 n3 <<<"$new"
+            if [ "$cur" = "$new" ]; then
+              echo none
+            elif [ "$n1" != "$c1" ]; then
+              echo major
+            elif [ "$n2" != "$c2" ]; then
+              echo minor
+            else
+              echo patch
+            fi
+          }
+
+          # Returns 0 if $2 > $1 by semver, non-zero otherwise.
+          is_newer() {
+            local cur="$1" new="$2"
+            [ "$(printf '%s\n%s\n' "$cur" "$new" | sort -V | tail -1)" = "$new" ] \
+              && [ "$cur" != "$new" ]
+          }
+
+          # Rewrite the pinned version for $pkg in agent.go.
+          rewrite_pin() {
+            local pkg="$1" new="$2"
+            sed -i -E \
+              "s|${pkg}@v[0-9]+\.[0-9]+\.[0-9]+|${pkg}@v${new}|g" \
+              "$AGENT_FILE"
+          }
+
+          npm_release_url() {
+            local pkg="$1" ver="$2"
+            echo "https://www.npmjs.com/package/${pkg}/v/${ver}"
+          }
+
+          # Reset the worktree to a fresh branch off origin/main.
+          start_branch() {
+            local branch="$1"
+            git checkout -f -B "$branch" origin/main
+          }
+
+          # Commit, force-push, then create or refresh the PR.
+          commit_and_upsert_pr() {
+            local branch="$1" title="$2" body="$3"
+            if git diff --quiet -- "$AGENT_FILE"; then
+              echo "no changes on $branch — skipping"
+              return 0
+            fi
+            git add "$AGENT_FILE"
+            git commit -m "$title"
+            git push --force "$AUTH_REMOTE" "$branch":"$branch"
+
+            local existing
+            existing=$(gh pr list --head "$branch" --state open \
+              --json number --jq '.[0].number // empty')
+            if [ -n "$existing" ]; then
+              gh pr edit "$existing" --title "$title" --body "$body"
+              echo "refreshed existing PR #$existing on $branch"
+            else
+              gh pr create --base main --head "$branch" \
+                --title "$title" --body "$body"
+            fi
+          }
+
+          # ── Phase 1: detect updates ─────────────────────────────────────
+          # Collect updates as TSV: pkg \t agent \t current \t new \t bump
+          updates_file=$(mktemp)
+          for pkg in "${!AGENTS[@]}"; do
+            agent="${AGENTS[$pkg]}"
+            cur=$(current_version "$pkg" || true)
+            if [ -z "$cur" ]; then
+              echo "::warning::could not find current pin for $pkg in $AGENT_FILE"
+              continue
+            fi
+            new=$(eligible_version "$pkg" || true)
+            if [ -z "$new" ]; then
+              echo "::warning::no eligible version found for $pkg (registry error or cool-down)"
+              continue
+            fi
+            if ! is_newer "$cur" "$new"; then
+              echo "$agent: $cur is up to date (latest eligible: $new)"
+              continue
+            fi
+            bump=$(classify_bump "$cur" "$new")
+            echo "$agent: $cur -> $new ($bump)"
+            printf '%s\t%s\t%s\t%s\t%s\n' "$pkg" "$agent" "$cur" "$new" "$bump" \
+              >> "$updates_file"
+          done
+
+          if [ ! -s "$updates_file" ]; then
+            echo "No updates to apply."
+            exit 0
+          fi
+
+          # ── Phase 2: combined PR for minor + patch bumps ────────────────
+          minor_lines=$(awk -F'\t' '$5=="minor" || $5=="patch"' "$updates_file" || true)
+          if [ -n "$minor_lines" ]; then
+            start_branch "automated/agent-updates-minor"
+
+            agents_in_pr=()
+            body=$'## Agent updates\n\n'
+            while IFS=$'\t' read -r pkg agent cur new bump; do
+              [ -z "$pkg" ] && continue
+              rewrite_pin "$pkg" "$new"
+              agents_in_pr+=("$agent")
+              url=$(npm_release_url "$pkg" "$new")
+              body+="- **${agent}** (\`${pkg}\`): \`v${cur}\` → \`v${new}\` (${bump}) — [release](${url})"$'\n'
+            done <<< "$minor_lines"
+
+            title="Update agents: $(IFS=', '; echo "${agents_in_pr[*]}")"
+            commit_and_upsert_pr "automated/agent-updates-minor" "$title" "$body"
+          fi
+
+          # ── Phase 3: one PR per major bump ──────────────────────────────
+          while IFS=$'\t' read -r pkg agent cur new bump; do
+            [ -z "$pkg" ] && continue
+
+            branch="automated/agent-update-major-${agent}"
+            start_branch "$branch"
+            rewrite_pin "$pkg" "$new"
+
+            url=$(npm_release_url "$pkg" "$new")
+            title="Update agents: ${agent}"
+            body=$'## Agent updates\n\n'
+            body+="- **${agent}** (\`${pkg}\`): \`v${cur}\` → \`v${new}\` (major) — [release](${url})"$'\n\n'
+            body+=$'> ⚠️ This is a **major** version bump. Review the upstream release notes for breaking changes before merging.\n'
+
+            commit_and_upsert_pr "$branch" "$title" "$body"
+          done < <(awk -F'\t' '$5=="major"' "$updates_file")
