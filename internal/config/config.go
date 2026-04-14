@@ -46,6 +46,7 @@ func (cfg *Config) SetTools(entries []ToolEntry) {
 // BuildConfig holds custom Dockerfile build steps.
 type BuildConfig struct {
 	CustomSteps []string `toml:"custom_steps"`
+	RootSteps   []string `toml:"root_steps"`
 }
 
 // Volume represents an additional volume mount.
@@ -165,6 +166,7 @@ func Save(cfg *Config, path string) error {
 // - agent: project overrides global
 // - tools: union (deduplicated by name; project version overrides)
 // - build.custom_steps: concatenated (global first, then project)
+// - build.root_steps: concatenated (global first, then project)
 // - volumes: union (project overrides if same container path)
 // - environment: merged (project keys override global)
 func Merge(global, project *Config) *Config {
@@ -188,6 +190,10 @@ func Merge(global, project *Config) *Config {
 	// Build.CustomSteps: concatenated.
 	result.Build.CustomSteps = append(result.Build.CustomSteps, global.Build.CustomSteps...)
 	result.Build.CustomSteps = append(result.Build.CustomSteps, project.Build.CustomSteps...)
+
+	// Build.RootSteps: concatenated.
+	result.Build.RootSteps = append(result.Build.RootSteps, global.Build.RootSteps...)
+	result.Build.RootSteps = append(result.Build.RootSteps, project.Build.RootSteps...)
 
 	// Volumes: union, project overrides by container path.
 	volMap := make(map[string]Volume)
@@ -234,6 +240,12 @@ func Validate(cfg *Config) error {
 	}
 
 	for _, step := range cfg.Build.CustomSteps {
+		if err := validateCustomStep(step); err != nil {
+			return err
+		}
+	}
+
+	for _, step := range cfg.Build.RootSteps {
 		if err := validateCustomStep(step); err != nil {
 			return err
 		}

@@ -72,7 +72,7 @@ func TestLoadCustomToolsFromValid(t *testing.T) {
 			},
 			{
 				"name": "internal-cli",
-				"source_image": "registry.acme.internal/tools/internal-cli",
+				"source_image": "registry.acme.example/tools/internal-cli",
 				"default_tag": "1.2.3",
 				"instructions": ["COPY --from=%s /usr/bin/internal-cli /usr/local/bin/internal-cli"]
 			}
@@ -94,7 +94,7 @@ func TestLoadCustomToolsFromValid(t *testing.T) {
 	if len(f.Tools[0].Instructions) != 1 {
 		t.Errorf("expected 1 instruction for htop, got %d", len(f.Tools[0].Instructions))
 	}
-	if f.Tools[1].SourceImage != "registry.acme.internal/tools/internal-cli" {
+	if f.Tools[1].SourceImage != "registry.acme.example/tools/internal-cli" {
 		t.Errorf("source_image not parsed correctly: %q", f.Tools[1].SourceImage)
 	}
 	if len(f.Ignore) != 2 || f.Ignore[0] != "ruby" || f.Ignore[1] != "php" {

@@ -337,13 +337,23 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:        "terraform-docs",
+		Category:    "cloud",
+		Description: "terraform-docs documentation generator",
+		SourceImage: "quay.io/terraform-docs/terraform-docs",
+		DefaultTag:  "0.22.0-arm64", // TODO: Remove arch when upstream fixes their builds
+		Instructions: []string{
+			"COPY --from=%s /usr/local/bin/terraform-docs /usr/local/bin/terraform-docs",
+		},
+	},
+	{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
+		DefaultTag:   "0.61.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
-			`RUN TFLINT_VERSION=0.61.0 \` + "\n" +
-				`  && curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
+			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
 				`  && unzip -o /tmp/tflint.zip -d /usr/local/bin \` + "\n" +
 				`  && rm /tmp/tflint.zip`,
 		},

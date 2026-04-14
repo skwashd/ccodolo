@@ -30,6 +30,11 @@ RUN apt update && apt upgrade -y \
   && touch /commandhistory/.bash_history /commandhistory/.zsh_history \
   && chown -R coder:coder /workspace /home/coder /commandhistory
 
+# ── Root setup steps ─────────────────────────────────
+{{ range .RootSteps }}
+{{ . }}
+{{ end }}
+
 USER coder
 WORKDIR /workspace
 
