@@ -357,7 +357,7 @@ func TestRenderInstructionsCustomTool(t *testing.T) {
 		Tool: Tool{
 			Name:        "acme",
 			Category:    "custom",
-			SourceImage: "registry.acme.internal/acme",
+			SourceImage: "registry.acme.example/acme",
 			DefaultTag:  "9.8.7-beta",
 			TagSuffix:   "-beta",
 			Instructions: []string{
@@ -375,13 +375,13 @@ func TestRenderInstructionsCustomTool(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("expected 3 lines, got %d", len(lines))
 	}
-	if lines[0] != "COPY --from=registry.acme.internal/acme:9.8.7-beta /usr/bin/acme /usr/local/bin/acme" {
+	if lines[0] != "COPY --from=registry.acme.example/acme:9.8.7-beta /usr/bin/acme /usr/local/bin/acme" {
 		t.Errorf("line 0 = %q", lines[0])
 	}
 	if lines[1] != "RUN /usr/local/bin/acme --version | grep 9.8.7" {
 		t.Errorf("line 1 = %q", lines[1])
 	}
-	if lines[2] != "LABEL acme.tag=9.8.7-beta acme.ref=registry.acme.internal/acme:9.8.7-beta" {
+	if lines[2] != "LABEL acme.tag=9.8.7-beta acme.ref=registry.acme.example/acme:9.8.7-beta" {
 		t.Errorf("line 2 = %q", lines[2])
 	}
 }

@@ -128,6 +128,13 @@ uv = ""
 nodejs = ""
 
 [build]
+root_steps = [
+    '''RUN curl -fsSL https://pki.acme.example/root-ca.crt -o /tmp/internal-ca.crt \
+     && openssl x509 -in /tmp/internal-ca.crt -noout -fingerprint -sha256 \
+        | grep -q 'SHA256 Fingerprint=3A:1B:5C:...:FF' \
+     && mv /tmp/internal-ca.crt /usr/local/share/ca-certificates/internal-ca.crt \
+     && update-ca-certificates''',
+]
 custom_steps = [
     'RUN sudo apt-get update && sudo apt-get install -y postgresql-client',
 ]
@@ -147,6 +154,7 @@ AWS_PROFILE = "dev"
 |-------|----------|
 | `agent` | Project overrides global |
 | `tools` | Union (deduplicated by name; project version overrides) |
+| `build.root_steps` | Concatenated (global first, then project) |
 | `build.custom_steps` | Concatenated (global first, then project) |
 | `volumes` | Union (project overrides if same container path) |
 | `environment` | Merged (project keys override global) |
@@ -245,7 +253,7 @@ build still proceeds with the built-in catalog.
     {
       "name": "internal-cli",
       "description": "Acme internal CLI",
-      "source_image": "registry.acme.internal/tools/internal-cli",
+      "source_image": "registry.acme.example/tools/internal-cli",
       "default_tag": "1.2.3",
       "instructions": [
         "COPY --from=%s /usr/bin/internal-cli /usr/local/bin/internal-cli"
@@ -374,13 +382,13 @@ can override it:
   "description": "Acme internal CLI",
   "default_tag": "4.2.1",
   "instructions": [
-    "RUN curl -fsSL https://downloads.acme.com/cli/v{{.Tag}}/acme-linux-amd64 -o /usr/local/bin/acme && chmod +x /usr/local/bin/acme"
+    "RUN curl -fsSL https://downloads.acme.example/cli/v{{.Tag}}/acme-linux-amd64 -o /usr/local/bin/acme && chmod +x /usr/local/bin/acme"
   ]
 }
 ```
 
 Passing `-v acme-cli=4.3.0` will render
-`https://downloads.acme.com/cli/v4.3.0/...` without any catalog change.
+`https://downloads.acme.example/cli/v4.3.0/...` without any catalog change.
 
 A malformed template surfaces as a clear error at resolve time (e.g.
 `tool "acme-cli": parsing instruction "...": template: instr:1: ...`) — the
@@ -422,6 +430,27 @@ custom_steps = [
 Only **RUN**, **COPY**, and **ADD** are allowed. Other instructions (ENV, WORKDIR, etc.) are lost during the single-layer squash.
 
 COPY/ADD source paths resolve relative to the project's `common/` directory.
+
+### Early root steps
+
+`build.root_steps` injects instructions **earlier** in the build, immediately after the base `apt` setup and before any network-fetching steps (including the `zsh-in-docker` install and all dev-tool installs). Use it when later steps need the setup in place — for example, installing an internal CA certificate or a private apt source before anything tries to `curl` from internal infrastructure.
+
+Fetch what you need over the network and verify it — don't try to stage local files into the build. A CA-cert install looks like:
+
+```toml
+[build]
+root_steps = [
+    '''RUN curl -fsSL https://pki.acme.example/root-ca.crt -o /tmp/internal-ca.crt \
+     && openssl x509 -in /tmp/internal-ca.crt -noout -fingerprint -sha256 \
+        | grep -q 'SHA256 Fingerprint=3A:1B:5C:...:FF' \
+     && mv /tmp/internal-ca.crt /usr/local/share/ca-certificates/internal-ca.crt \
+     && update-ca-certificates''',
+]
+```
+
+`openssl x509 -fingerprint` hashes the DER encoding of the certificate itself, not the file bytes — so it matches what your CA publishes and is stable against whitespace or line-ending churn on the server. If the fingerprint doesn't match, `grep -q` fails, `&&` short-circuits, the cert never gets moved into the trust store, and the build aborts — you never silently trust a new root.
+
+`root_steps` run as `root`, early. `custom_steps` run later, after tools are installed. Pick `root_steps` only when something downstream (network fetch, apt source, trust store) depends on the setup being in place; otherwise prefer `custom_steps`.
 
 ## Project Directories
 

@@ -130,6 +130,47 @@ func TestRenderDockerfileWithCustomSteps(t *testing.T) {
 	}
 }
 
+func TestRenderDockerfileWithRootSteps(t *testing.T) {
+	cfg := &config.Config{
+		Agent: "claude",
+		Build: config.BuildConfig{
+			RootSteps: []string{
+				"RUN curl -fsSL https://pki.acme.example/root-ca.crt -o /tmp/ca.crt && openssl x509 -in /tmp/ca.crt -noout -fingerprint -sha256 | grep -q 'SHA256 Fingerprint=AA:BB' && mv /tmp/ca.crt /usr/local/share/ca-certificates/internal-ca.crt && update-ca-certificates",
+			},
+		},
+	}
+
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result, "update-ca-certificates") {
+		t.Error("should contain root step")
+	}
+
+	rootStepIdx := strings.Index(result, "update-ca-certificates")
+	userCoderIdx := strings.Index(result, "USER coder")
+	zshIdx := strings.Index(result, "zsh-in-docker")
+	toolUserRootIdx := strings.Index(result, "# ── Bundled dev tools")
+
+	if rootStepIdx == -1 {
+		t.Fatal("root step not found in rendered output")
+	}
+	if userCoderIdx == -1 {
+		t.Fatal("USER coder not found in rendered output")
+	}
+	if rootStepIdx >= userCoderIdx {
+		t.Error("root step should appear before the first USER coder switch")
+	}
+	if zshIdx != -1 && rootStepIdx >= zshIdx {
+		t.Error("root step should appear before zsh-in-docker install")
+	}
+	if toolUserRootIdx != -1 && rootStepIdx >= toolUserRootIdx {
+		t.Error("root step should appear before bundled dev tools block")
+	}
+}
+
 func TestRenderDockerfileInvalidAgent(t *testing.T) {
 	cfg := &config.Config{Agent: "invalid"}
 	_, err := RenderDockerfile(cfg)

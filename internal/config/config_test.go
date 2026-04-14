@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -20,6 +21,9 @@ uv = "0.5"
 [build]
 custom_steps = [
     'RUN apt-get update',
+]
+root_steps = [
+    "RUN curl -fsSL https://pki.acme.example/root-ca.crt -o /tmp/ca.crt && openssl x509 -in /tmp/ca.crt -noout -fingerprint -sha256 | grep -q 'SHA256 Fingerprint=AA:BB' && mv /tmp/ca.crt /usr/local/share/ca-certificates/internal-ca.crt && update-ca-certificates",
 ]
 
 [[volumes]]
@@ -51,6 +55,12 @@ AWS_PROFILE = "dev"
 	}
 	if len(cfg.Build.CustomSteps) != 1 {
 		t.Fatalf("expected 1 custom step, got %d", len(cfg.Build.CustomSteps))
+	}
+	if len(cfg.Build.RootSteps) != 1 {
+		t.Fatalf("expected 1 root step, got %d", len(cfg.Build.RootSteps))
+	}
+	if !strings.Contains(cfg.Build.RootSteps[0], "update-ca-certificates") {
+		t.Errorf("expected root step to contain 'update-ca-certificates', got %q", cfg.Build.RootSteps[0])
 	}
 	if len(cfg.Volumes) != 1 {
 		t.Fatalf("expected 1 volume, got %d", len(cfg.Volumes))
@@ -190,6 +200,22 @@ func TestMergeCustomSteps(t *testing.T) {
 	}
 }
 
+func TestMergeRootSteps(t *testing.T) {
+	global := &Config{Build: BuildConfig{RootSteps: []string{"RUN echo global-root"}}}
+	project := &Config{Build: BuildConfig{RootSteps: []string{"RUN echo project-root"}}}
+	result := Merge(global, project)
+
+	if len(result.Build.RootSteps) != 2 {
+		t.Fatalf("expected 2 root steps, got %d", len(result.Build.RootSteps))
+	}
+	if result.Build.RootSteps[0] != "RUN echo global-root" {
+		t.Errorf("expected first step 'RUN echo global-root', got %q", result.Build.RootSteps[0])
+	}
+	if result.Build.RootSteps[1] != "RUN echo project-root" {
+		t.Errorf("expected second step 'RUN echo project-root', got %q", result.Build.RootSteps[1])
+	}
+}
+
 func TestMergeVolumes(t *testing.T) {
 	global := &Config{
 		Volumes: []Volume{
@@ -271,6 +297,32 @@ func TestValidate(t *testing.T) {
 		}
 		if err := Validate(cfg); err == nil {
 			t.Error("expected error for invalid custom step (ENV)")
+		}
+	})
+
+	t.Run("invalid root step", func(t *testing.T) {
+		cfg := &Config{
+			Agent: "claude",
+			Build: BuildConfig{RootSteps: []string{"ENV FOO=bar"}},
+		}
+		err := Validate(cfg)
+		if err == nil {
+			t.Fatal("expected error for invalid root step (ENV)")
+		}
+		if !strings.Contains(err.Error(), "single-layer squash") {
+			t.Errorf("expected squash error message, got %q", err.Error())
+		}
+	})
+
+	t.Run("valid root steps", func(t *testing.T) {
+		cfg := &Config{
+			Agent: "claude",
+			Build: BuildConfig{RootSteps: []string{
+				"RUN curl -fsSL https://pki.acme.example/root-ca.crt -o /tmp/ca.crt && openssl x509 -in /tmp/ca.crt -noout -fingerprint -sha256 | grep -q 'SHA256 Fingerprint=AA:BB' && mv /tmp/ca.crt /usr/local/share/ca-certificates/internal-ca.crt && update-ca-certificates",
+			}},
+		}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 

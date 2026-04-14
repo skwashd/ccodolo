@@ -17,6 +17,7 @@ import (
 // RenderData holds all values injected into the Dockerfile template.
 type RenderData struct {
 	ToolInstructions []string // rendered tool Dockerfile lines
+	RootSteps        []string // raw root-level Dockerfile steps (pre-tools)
 	CustomSteps      []string // raw custom Dockerfile steps
 	AgentInstall     string   // agent install RUN command
 	AgentExtraEnv    []string // agent extra ENV lines ("KEY=VALUE")
@@ -105,6 +106,7 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 
 	data := RenderData{
 		ToolInstructions: toolLines,
+		RootSteps:        cfg.Build.RootSteps,
 		CustomSteps:      cfg.Build.CustomSteps,
 		AgentInstall:     meta.InstallCmd,
 		AgentExtraEnv:    envLines,
