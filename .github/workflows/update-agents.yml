@@ -5,9 +5,9 @@ name: Update Agents
 # separate PR for each major bump. Versions published in the last 24 hours are
 # excluded (cool-down, similar to dependabot's cooldown feature).
 #
-# Note: PRs are created with the default GITHUB_TOKEN, which means they will
-# NOT trigger validate.yml automatically. To run CI on a PR opened by this
-# workflow, push an empty commit or close-and-reopen the PR.
+# Auth: PRs are created with a fine-grained PAT stored as an environment
+# secret on the `agent-updates` environment (scoped to this repo, with
+# Contents + Pull requests write). The default GITHUB_TOKEN is unused.
 
 on:
   schedule:
@@ -19,9 +19,8 @@ jobs:
   update:
     name: Check npm for agent updates
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      pull-requests: write
+    environment: agent-updates
+    permissions: {}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -36,7 +35,7 @@ jobs:
 
       - name: Find updates and open PRs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.UPDATE_AGENTS_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
