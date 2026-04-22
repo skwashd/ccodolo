@@ -94,9 +94,8 @@ var builtinCatalog = []Tool{
 		DefaultTag:  "1.24",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/go /usr/local/go",
-			"ENV PATH=\"/usr/local/go/bin:$PATH\"",
+			"RUN ln -sf /usr/local/go/bin/go /usr/local/bin/go && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt",
 		},
-		PathEntries: []string{"/usr/local/go/bin"},
 	},
 	{
 		Name:        "java",
