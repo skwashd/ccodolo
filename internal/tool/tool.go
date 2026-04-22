@@ -427,6 +427,9 @@ var builtinCatalog = []Tool{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
 		},
+		EnvVars: map[string]string{
+			"GH_TELEMETRY": "false",
+		},
 	},
 	{
 		Name:        "make",
