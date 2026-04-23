@@ -418,6 +418,19 @@ var builtinCatalog = []Tool{
 
 	// ── utils ─────────────────────────────────────────────────────────────
 	{
+		Name:        "acli",
+		Category:    "utils",
+		Description: "Atlassian CLI",
+		Instructions: []string{
+			`RUN mkdir -p -m 755 /etc/apt/keyrings \` + "\n" +
+				`  && curl -fsSL https://acli.atlassian.com/gpg/public-key.asc | gpg --dearmor -o /etc/apt/keyrings/acli-archive-keyring.gpg \` + "\n" +
+				`  && chmod go+r /etc/apt/keyrings/acli-archive-keyring.gpg \` + "\n" +
+				`  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/acli-archive-keyring.gpg] https://acli.atlassian.com/linux/deb stable main" > /etc/apt/sources.list.d/acli.list \` + "\n" +
+				`  && apt update && apt install -y --no-install-recommends acli \` + "\n" +
+				`  && rm -rf /var/lib/apt/lists/*`,
+		},
+	},
+	{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
@@ -436,6 +449,26 @@ var builtinCatalog = []Tool{
 		Description: "GNU Make",
 		Instructions: []string{
 			"RUN apt update && apt install -y --no-install-recommends make && rm -rf /var/lib/apt/lists/*",
+		},
+	},
+	{
+		Name:        "op",
+		Category:    "utils",
+		Description: "1Password CLI",
+		SourceImage: "1password/op",
+		DefaultTag:  "2",
+		Instructions: []string{
+			"COPY --from=%s /usr/local/bin/op /usr/local/bin/op",
+		},
+	},
+	{
+		Name:        "pinact",
+		Category:    "utils",
+		Description: "Pin GitHub Actions versions",
+		DefaultTag:  "3.9.0",
+		Instructions: []string{
+			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
+				`  | tar xz -C /usr/local/bin pinact`,
 		},
 	},
 	{
