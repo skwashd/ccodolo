@@ -117,7 +117,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Node.js",
 		SourceImage: "public.ecr.aws/docker/library/node",
-		DefaultTag:  "22",
+		DefaultTag:  "24",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/node /usr/local/bin/node",
