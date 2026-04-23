@@ -100,7 +100,7 @@ var registry = map[Agent]Meta{
 	OpenCode: {
 		Name:       OpenCode,
 		ConfigDir:  ".opencode",
-		InstallCmd: `RUN npm install -g opencode-ai@v1.14.19`,
+		InstallCmd: `RUN npm install -g opencode-ai@v1.14.20`,
 		Entrypoint: []string{"opencode"},
 		DependsOn:  []string{"nodejs"},
 	},
