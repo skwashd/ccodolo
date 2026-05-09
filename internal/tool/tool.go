@@ -293,7 +293,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Azure CLI",
 		Instructions: []string{
-			"RUN curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
+			`RUN curl -fsSL 'https://azurecliprod.blob.core.windows.net/$root/deb_install.sh' | sudo bash`,
 		},
 	},
 	{
