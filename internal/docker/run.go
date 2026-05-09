@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/skwashd/ccodolo/internal/agent"
 	"github.com/skwashd/ccodolo/internal/config"
+	"golang.org/x/sys/unix"
 )
 
 // Run launches a new Docker container.
@@ -138,30 +137,14 @@ func Exec(project, workdir string) error {
 	return runDocker([]string{"exec", "-it", containerID, "/bin/zsh"})
 }
 
-// runDocker executes a docker command with stdin/stdout/stderr passthrough
-// and forwards signals to the child process.
+// runDocker replaces the current process with docker via unix.Exec,
+// giving Docker direct ownership of the terminal for interactive TUI apps.
+// On success, this function never returns.
 func runDocker(args []string) error {
-	cmd := exec.Command("docker", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Forward signals to the child process.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("starting docker: %w", err)
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		return fmt.Errorf("finding docker executable: %w", err)
 	}
 
-	go func() {
-		for sig := range sigCh {
-			if cmd.Process != nil {
-				_ = cmd.Process.Signal(sig)
-			}
-		}
-	}()
-
-	return cmd.Wait()
+	return unix.Exec(dockerPath, append([]string{"docker"}, args...), os.Environ())
 }
