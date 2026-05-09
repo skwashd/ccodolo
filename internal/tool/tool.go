@@ -310,9 +310,9 @@ var builtinCatalog = []Tool{
 	{
 		Name:        "helm",
 		Category:    "cloud",
-		Description: "Helm package manager for Kubernetes",
+		Description: "Helm 4 package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.1.4/scripts/get-helm-4 | bash",
 		},
 	},
 	{
