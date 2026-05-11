@@ -205,6 +205,7 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `make` | Utilities | GNU Make |
 | `ssh` | Utilities | OpenSSH client |
 | `wget` | Utilities | GNU Wget |
+| `youtube-transcript-api` | Utilities | Python library/CLI to fetch YouTube transcripts |
 | `yt-dlp` | Utilities | yt-dlp video downloader (verifies SHA2-256SUMS at build) |
 
 ### Tool dependencies
@@ -220,6 +221,7 @@ These tools automatically install their dependencies:
 - `aws-cdk` installs `nodejs`
 - `playwright` installs `nodejs`
 - `hugo` installs `golang`
+- `youtube-transcript-api` installs `python`
 - `yt-dlp` installs `python`
 - npm-based agents (codex, copilot, gemini, opencode) auto-install `nodejs`
 
