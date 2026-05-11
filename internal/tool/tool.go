@@ -508,6 +508,21 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "yt-dlp",
+		Category:     "utils",
+		Description:  "yt-dlp video downloader",
+		DefaultTag:   "2026.03.17",
+		Dependencies: []string{"python"},
+		Instructions: []string{
+			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
+				`  && curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/SHA2-256SUMS" -o /tmp/SHA2-256SUMS \` + "\n" +
+				`  && (cd /tmp && sha256sum --ignore-missing -c SHA2-256SUMS) \` + "\n" +
+				`  && mv /tmp/yt-dlp /usr/local/bin/yt-dlp \` + "\n" +
+				`  && chmod +x /usr/local/bin/yt-dlp \` + "\n" +
+				`  && rm /tmp/SHA2-256SUMS`,
+		},
+	},
+	{
 		Name:        "zizmor",
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
