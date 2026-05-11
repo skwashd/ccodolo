@@ -431,6 +431,14 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:        "ffmpeg",
+		Category:    "utils",
+		Description: "FFmpeg audio/video toolkit",
+		Instructions: []string{
+			"RUN apt update && apt install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*",
+		},
+	},
+	{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",

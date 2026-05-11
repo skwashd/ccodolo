@@ -199,6 +199,7 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `sqlite` | Database | SQLite database engine |
 | `playwright` | Testing | Playwright browser testing CLI |
 | `hugo` | Testing | Hugo static site generator (extended) |
+| `ffmpeg` | Utilities | FFmpeg audio/video toolkit |
 | `gh` | Utilities | GitHub CLI |
 | `zizmor` | Utilities | GitHub Actions workflow security analyzer |
 | `make` | Utilities | GNU Make |
