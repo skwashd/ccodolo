@@ -183,6 +183,7 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `composer` | Package Manager | Composer PHP package manager |
 | `gradle` | Package Manager | Gradle build tool |
 | `maven` | Package Manager | Apache Maven |
+| `pixi` | Package Manager | Conda/PyPI package manager (prefix-dev/pixi) |
 | `yarn` | Package Manager | Yarn package manager |
 | `pnpm` | Package Manager | pnpm package manager |
 | `skills` | Package Manager | Vercel skill installer |

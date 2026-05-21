@@ -227,6 +227,17 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:        "pixi",
+		Category:    "package-manager",
+		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
+		SourceImage: "ghcr.io/prefix-dev/pixi",
+		DefaultTag:  "0.68.1",
+		TagSuffix:   "-trixie",
+		Instructions: []string{
+			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
+		},
+	},
+	{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
