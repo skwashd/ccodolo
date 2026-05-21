@@ -462,6 +462,14 @@ var builtinCatalog = []Tool{
 			"GH_TELEMETRY": "false",
 		},
 	},
+		{
+		Name:        "imagemagick",
+		Category:    "utils",
+		Description: "ImageMagick image processing suite",
+		Instructions: []string{
+			`RUN apt update && apt install -y imagemagick libmagickcore-7.q16-10-extra && rm -rf /var/lib/apt/lists/*`,
+		},
+	},
 	{
 		Name:        "make",
 		Category:    "utils",
