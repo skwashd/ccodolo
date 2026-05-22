@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 )
 
-// SetupCopilot configures trusted_folders in .copilot/config.json.
+// SetupCopilot configures trusted_folders in .copilot/settings.json.
 func SetupCopilot(projectPath, projectName string) error {
 	configDir := filepath.Join(projectPath, ".copilot")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
 
-	configPath := filepath.Join(configDir, "config.json")
+	configPath := filepath.Join(configDir, "settings.json")
 	projectDir := "/workspace/" + projectName
 
 	cfg := make(map[string]interface{})

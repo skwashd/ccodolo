@@ -15,10 +15,10 @@ func TestSetupCopilot(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	configPath := filepath.Join(dir, ".copilot", "config.json")
+	configPath := filepath.Join(dir, ".copilot", "settings.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		t.Fatalf("expected config.json to exist: %v", err)
+		t.Fatalf("expected settings.json to exist: %v", err)
 	}
 
 	var cfg map[string]interface{}
@@ -49,7 +49,7 @@ func TestSetupCopilotIdempotent(t *testing.T) {
 		t.Fatalf("second call: %v", err)
 	}
 
-	configPath := filepath.Join(dir, ".copilot", "config.json")
+	configPath := filepath.Join(dir, ".copilot", "settings.json")
 	data, _ := os.ReadFile(configPath)
 
 	var cfg map[string]interface{}
@@ -76,7 +76,7 @@ func TestSetupCopilotExistingConfig(t *testing.T) {
 		"other_key":       "preserved",
 	}
 	data, _ := json.Marshal(existing)
-	if err := os.WriteFile(filepath.Join(copilotDir, "config.json"), data, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(copilotDir, "settings.json"), data, 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestSetupCopilotExistingConfig(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	result, _ := os.ReadFile(filepath.Join(copilotDir, "config.json"))
+	result, _ := os.ReadFile(filepath.Join(copilotDir, "settings.json"))
 	var cfg map[string]interface{}
 	if err := json.Unmarshal(result, &cfg); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
