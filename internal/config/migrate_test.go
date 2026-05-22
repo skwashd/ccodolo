@@ -29,15 +29,15 @@ func TestParseShellConfigSingleQuotes(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ccodolo.config")
 
-	content := `agent='gemini'`
+	content := `agent='antigravity'`
 	_ = os.WriteFile(path, []byte(content), 0o644)
 
 	values, err := parseShellConfig(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if values["agent"] != "gemini" {
-		t.Errorf("expected agent='gemini', got %q", values["agent"])
+	if values["agent"] != "antigravity" {
+		t.Errorf("expected agent='antigravity', got %q", values["agent"])
 	}
 }
 
@@ -96,7 +96,7 @@ func TestMigrationAlreadyMigrated(t *testing.T) {
 	newPath := filepath.Join(dir, "ccodolo.toml")
 
 	_ = os.WriteFile(oldPath, []byte(`agent="claude"`), 0o644)
-	_ = os.WriteFile(newPath, []byte(`agent = "gemini"`), 0o644)
+	_ = os.WriteFile(newPath, []byte(`agent = "antigravity"`), 0o644)
 
 	err := tryMigrate(dir)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestMigrationAlreadyMigrated(t *testing.T) {
 
 	// TOML should not be overwritten.
 	cfg, _ := loadFile(newPath)
-	if cfg.Agent != "gemini" {
-		t.Errorf("expected existing toml to be preserved with 'gemini', got %q", cfg.Agent)
+	if cfg.Agent != "antigravity" {
+		t.Errorf("expected existing toml to be preserved with 'antigravity', got %q", cfg.Agent)
 	}
 }

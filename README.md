@@ -53,7 +53,6 @@ The interactive TUI will let you select dev tools. The container will start with
 - **claude** - Anthropic Claude Code
 - **codex** - OpenAI Codex
 - **copilot** - GitHub Copilot CLI
-- **gemini** - Google Gemini CLI
 - **kiro** - Kiro AI CLI
 - **opencode** - OpenCode AI
 
@@ -90,13 +89,13 @@ ccodolo --project myapp --create-new --tools python:3.12-slim,nodejs:22-slim
 ccodolo --project myapp
 
 # Switch agent for a session
-ccodolo --project myapp --agent gemini
+ccodolo --project myapp --agent antigravity
 
 # Reconfigure existing project (interactive TUI)
 ccodolo --project myapp --reconfigure
 
 # Reconfigure via flags (non-interactive)
-ccodolo --project myapp --reconfigure --agent gemini --tools python,uv,terraform
+ccodolo --project myapp --reconfigure --agent antigravity --tools python,uv,terraform
 
 # Attach to running container
 ccodolo --project myapp --exec
@@ -225,7 +224,7 @@ These tools automatically install their dependencies:
 - `hugo` installs `golang`
 - `youtube-transcript-api` installs `python`
 - `yt-dlp` installs `python`
-- npm-based agents (codex, copilot, gemini, opencode) auto-install `nodejs`
+- npm-based agents (codex, copilot, opencode) auto-install `nodejs`
 
 ### Base system tools (always installed)
 
@@ -472,7 +471,7 @@ Each project maintains isolated configuration under `~/.ccodolo/projects/<projec
 ├── .claude.json
 ├── .claude-plugin/
 ├── .copilot/
-├── .gemini/
+├── .gemini/            # Antigravity settings dir
 ├── .codex/
 ├── .kiro/
 └── .opencode/
@@ -534,11 +533,6 @@ Each agent requires authentication within the container. Credentials are stored 
 - **Config directory**: `.gemini/` (Antigravity reuses Gemini's settings tree at `~/.gemini/antigravity-cli/settings.json`)
 - **Setup**: Authenticate within the container on first run
 - **Documentation**: https://antigravity.google/docs <!-- TODO: confirm URL before merge -->
-
-### Google Gemini
-- **Config directory**: `.gemini/`
-- **Setup**: Login with Google (OAuth) or configure API key within the container
-- **Documentation**: https://ai.google.dev/gemini-api
 
 ### Kiro
 - **Config directory**: `.kiro/`

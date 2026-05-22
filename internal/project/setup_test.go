@@ -161,41 +161,6 @@ func TestSetupAntigravityExistingConfig(t *testing.T) {
 	}
 }
 
-func TestSetupGemini(t *testing.T) {
-	dir := t.TempDir()
-
-	err := SetupGemini(dir, "myproject")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	configPath := filepath.Join(dir, ".gemini", "settings.json")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("expected settings.json to exist: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-
-	ctx, ok := cfg["context"].(map[string]interface{})
-	if !ok {
-		t.Fatal("expected context object")
-	}
-
-	dirs := ctx["includeDirectories"].([]interface{})
-	if len(dirs) != 1 || dirs[0] != "/workspace/myproject" {
-		t.Errorf("unexpected includeDirectories: %v", dirs)
-	}
-
-	files := ctx["fileName"].([]interface{})
-	if len(files) != 2 {
-		t.Errorf("expected 2 fileNames, got %d", len(files))
-	}
-}
-
 func TestSetupKiro(t *testing.T) {
 	dir := t.TempDir()
 

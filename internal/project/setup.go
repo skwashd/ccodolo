@@ -72,57 +72,6 @@ func SetupAntigravity(projectPath string) error {
 	return writeJSON(configPath, cfg)
 }
 
-// SetupGemini configures context in .gemini/settings.json.
-func SetupGemini(projectPath, projectName string) error {
-	configDir := filepath.Join(projectPath, ".gemini")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		return err
-	}
-
-	configPath := filepath.Join(configDir, "settings.json")
-	projectDir := "/workspace/" + projectName
-
-	cfg := make(map[string]interface{})
-	if data, err := os.ReadFile(configPath); err == nil {
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return fmt.Errorf("parsing %s: %w", configPath, err)
-		}
-	}
-
-	// Get or create context.
-	ctx, _ := cfg["context"].(map[string]interface{})
-	if ctx == nil {
-		ctx = make(map[string]interface{})
-	}
-
-	// Update includeDirectories.
-	var dirs []string
-	if raw, ok := ctx["includeDirectories"]; ok {
-		if arr, ok := raw.([]interface{}); ok {
-			for _, v := range arr {
-				if s, ok := v.(string); ok {
-					dirs = append(dirs, s)
-				}
-			}
-		}
-	}
-	found := false
-	for _, d := range dirs {
-		if d == projectDir {
-			found = true
-			break
-		}
-	}
-	if !found {
-		dirs = append(dirs, projectDir)
-	}
-	ctx["includeDirectories"] = dirs
-	ctx["fileName"] = []string{"AGENTS.md", "GEMINI.md"}
-
-	cfg["context"] = ctx
-	return writeJSON(configPath, cfg)
-}
-
 // SetupKiro disables telemetry in .kiro/settings/cli.json.
 func SetupKiro(projectPath string) error {
 	settingsDir := filepath.Join(projectPath, ".kiro", "settings")

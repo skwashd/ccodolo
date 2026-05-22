@@ -46,7 +46,6 @@ jobs:
             ["@anthropic-ai/claude-code"]="claude"
             ["@openai/codex"]="codex"
             ["@github/copilot"]="copilot"
-            ["@google/gemini-cli"]="gemini"
             ["opencode-ai"]="opencode"
           )
 

@@ -89,37 +89,6 @@ func TestRenderDockerfileAntigravity(t *testing.T) {
 	}
 }
 
-func TestRenderDockerfileGemini(t *testing.T) {
-	cfg := &config.Config{
-		Agent: "gemini",
-	}
-
-	result, err := RenderDockerfile(cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Should auto-add nodejs since gemini is npm-based.
-	if !strings.Contains(result, "# Tool: nodejs") {
-		t.Error("should auto-add nodejs for gemini agent")
-	}
-
-	// Should contain npm config.
-	if !strings.Contains(result, "prefix=/home/coder/.local/") {
-		t.Error("should contain npm config when nodejs is present")
-	}
-
-	// Should contain gemini install.
-	if !strings.Contains(result, "gemini-cli") {
-		t.Error("should contain gemini install command")
-	}
-
-	// Should contain gemini entrypoint.
-	if !strings.Contains(result, `["gemini","--approval-mode=yolo"]`) {
-		t.Error("should contain gemini entrypoint")
-	}
-}
-
 func TestRenderDockerfileKiro(t *testing.T) {
 	cfg := &config.Config{
 		Agent: "kiro",
@@ -361,7 +330,7 @@ func TestRenderDockerfileNoUsernameArg(t *testing.T) {
 }
 
 func TestRenderDockerfileAllAgents(t *testing.T) {
-	agents := []string{"antigravity", "claude", "codex", "copilot", "gemini", "kiro", "opencode"}
+	agents := []string{"antigravity", "claude", "codex", "copilot", "kiro", "opencode"}
 	for _, a := range agents {
 		t.Run(a, func(t *testing.T) {
 			cfg := &config.Config{Agent: a}

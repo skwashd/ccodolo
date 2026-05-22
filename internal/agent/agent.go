@@ -10,14 +10,13 @@ const (
 	Claude      Agent = "claude"
 	Codex       Agent = "codex"
 	Copilot     Agent = "copilot"
-	Gemini      Agent = "gemini"
 	Kiro        Agent = "kiro"
 	OpenCode    Agent = "opencode"
 )
 
 // All returns all supported agents.
 func All() []Agent {
-	return []Agent{Antigravity, Claude, Codex, Copilot, Gemini, Kiro, OpenCode}
+	return []Agent{Antigravity, Claude, Codex, Copilot, Kiro, OpenCode}
 }
 
 // AllNames returns the string names of all supported agents.
@@ -88,13 +87,6 @@ var registry = map[Agent]Meta{
 		ConfigDir:  ".copilot",
 		InstallCmd: `RUN npm install -g @github/copilot@v1.0.50`,
 		Entrypoint: []string{"copilot", "--allow-all"},
-		DependsOn:  []string{"nodejs"},
-	},
-	Gemini: {
-		Name:       Gemini,
-		ConfigDir:  ".gemini",
-		InstallCmd: `RUN npm install -g @google/gemini-cli@v0.42.0`,
-		Entrypoint: []string{"gemini", "--approval-mode=yolo"},
 		DependsOn:  []string{"nodejs"},
 	},
 	Kiro: {

@@ -47,7 +47,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.Flags().StringVar(&flagProject, "project", "", "Project name (required)")
 	rootCmd.Flags().StringVar(&flagWorkdir, "workdir", "", "Working directory (default: current directory)")
-	rootCmd.Flags().StringVar(&flagAgent, "agent", "", "Agent to use: antigravity, claude, codex, copilot, gemini, kiro, opencode")
+	rootCmd.Flags().StringVar(&flagAgent, "agent", "", "Agent to use: antigravity, claude, codex, copilot, kiro, opencode")
 	rootCmd.Flags().StringVar(&flagTools, "tools", "", "Comma-separated list of dev tools to install")
 	rootCmd.Flags().BoolVar(&flagCreateNew, "create-new", false, "Create new project without confirmation prompt")
 	rootCmd.Flags().BoolVar(&flagExec, "exec", false, "Attach to existing container instead of creating new one")
@@ -207,10 +207,6 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	case agent.Copilot:
 		if err := project.SetupCopilot(projectPath, flagProject); err != nil {
 			return fmt.Errorf("configuring copilot: %w", err)
-		}
-	case agent.Gemini:
-		if err := project.SetupGemini(projectPath, flagProject); err != nil {
-			return fmt.Errorf("configuring gemini: %w", err)
 		}
 	case agent.Kiro:
 		if err := project.SetupKiro(projectPath); err != nil {
