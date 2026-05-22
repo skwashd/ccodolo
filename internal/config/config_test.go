@@ -98,7 +98,7 @@ func TestLoadProjectOnly(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ccodolo.toml")
 
-	content := `agent = "gemini"
+	content := `agent = "antigravity"
 
 [tools]
 python = ""
@@ -111,8 +111,8 @@ python = ""
 	if err != nil {
 		t.Fatalf("LoadProjectOnly() error: %v", err)
 	}
-	if cfg.Agent != "gemini" {
-		t.Errorf("expected agent 'gemini', got %q", cfg.Agent)
+	if cfg.Agent != "antigravity" {
+		t.Errorf("expected agent 'antigravity', got %q", cfg.Agent)
 	}
 	if len(cfg.Tools) != 1 {
 		t.Errorf("expected 1 tool, got %d", len(cfg.Tools))
@@ -138,10 +138,10 @@ func TestLoadProjectOnlyNonexistent(t *testing.T) {
 
 func TestMergeAgent(t *testing.T) {
 	global := &Config{Agent: "claude"}
-	project := &Config{Agent: "gemini"}
+	project := &Config{Agent: "antigravity"}
 	result := Merge(global, project)
-	if result.Agent != "gemini" {
-		t.Errorf("expected project agent 'gemini', got %q", result.Agent)
+	if result.Agent != "antigravity" {
+		t.Errorf("expected project agent 'antigravity', got %q", result.Agent)
 	}
 
 	// Empty project agent should use global.
@@ -389,7 +389,7 @@ func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(dir, "ccodolo.toml")
 
 	cfg := &Config{
-		Agent: "gemini",
+		Agent: "antigravity",
 		Tools: map[string]string{
 			"python": "",
 			"uv":     "0.5",

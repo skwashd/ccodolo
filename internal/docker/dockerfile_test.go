@@ -58,9 +58,9 @@ func TestRenderDockerfileClaude(t *testing.T) {
 	}
 }
 
-func TestRenderDockerfileGemini(t *testing.T) {
+func TestRenderDockerfileAntigravity(t *testing.T) {
 	cfg := &config.Config{
-		Agent: "gemini",
+		Agent: "antigravity",
 	}
 
 	result, err := RenderDockerfile(cfg)
@@ -68,24 +68,24 @@ func TestRenderDockerfileGemini(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should auto-add nodejs since gemini is npm-based.
-	if !strings.Contains(result, "# Tool: nodejs") {
-		t.Error("should auto-add nodejs for gemini agent")
+	// Antigravity is curl-installed and does NOT depend on nodejs.
+	if strings.Contains(result, "# Tool: nodejs") {
+		t.Error("should NOT auto-add nodejs for antigravity agent")
 	}
 
-	// Should contain npm config.
-	if !strings.Contains(result, "prefix=/home/coder/.local/") {
-		t.Error("should contain npm config when nodejs is present")
+	// Without nodejs there should be no npm config block.
+	if strings.Contains(result, "prefix=/home/coder/.local/") {
+		t.Error("should NOT contain npm config when nodejs is absent")
 	}
 
-	// Should contain gemini install.
-	if !strings.Contains(result, "gemini-cli") {
-		t.Error("should contain gemini install command")
+	// Should contain the antigravity install command.
+	if !strings.Contains(result, "antigravity.google/cli/install.sh") {
+		t.Error("should contain antigravity install command")
 	}
 
-	// Should contain gemini entrypoint.
-	if !strings.Contains(result, `["gemini","--approval-mode=yolo"]`) {
-		t.Error("should contain gemini entrypoint")
+	// Should contain antigravity entrypoint.
+	if !strings.Contains(result, `["agy","--dangerously-skip-permissions"]`) {
+		t.Error("should contain antigravity entrypoint")
 	}
 }
 
@@ -330,7 +330,7 @@ func TestRenderDockerfileNoUsernameArg(t *testing.T) {
 }
 
 func TestRenderDockerfileAllAgents(t *testing.T) {
-	agents := []string{"claude", "codex", "copilot", "gemini", "kiro", "opencode"}
+	agents := []string{"antigravity", "claude", "codex", "copilot", "kiro", "opencode"}
 	for _, a := range agents {
 		t.Run(a, func(t *testing.T) {
 			cfg := &config.Config{Agent: a}

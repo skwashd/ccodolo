@@ -13,7 +13,7 @@ func TestAllAgents(t *testing.T) {
 
 func TestAllNames(t *testing.T) {
 	names := AllNames()
-	expected := []string{"claude", "codex", "copilot", "gemini", "kiro", "opencode"}
+	expected := []string{"antigravity", "claude", "codex", "copilot", "kiro", "opencode"}
 	if len(names) != len(expected) {
 		t.Fatalf("expected %d names, got %d", len(expected), len(names))
 	}
@@ -29,10 +29,10 @@ func TestValid(t *testing.T) {
 		name  string
 		valid bool
 	}{
+		{"antigravity", true},
 		{"claude", true},
 		{"codex", true},
 		{"copilot", true},
-		{"gemini", true},
 		{"kiro", true},
 		{"opencode", true},
 		{"unknown", false},
@@ -97,7 +97,7 @@ func TestGetAllAgentsHaveMetadata(t *testing.T) {
 }
 
 func TestNpmAgentsDependOnNodejs(t *testing.T) {
-	npmAgents := []Agent{Claude, Codex, Copilot, Gemini, OpenCode}
+	npmAgents := []Agent{Claude, Codex, Copilot, OpenCode}
 	for _, a := range npmAgents {
 		deps := RequiredTools(a)
 		found := false
@@ -114,7 +114,7 @@ func TestNpmAgentsDependOnNodejs(t *testing.T) {
 }
 
 func TestNonNpmAgentsDoNotDependOnNodejs(t *testing.T) {
-	for _, a := range []Agent{Kiro} {
+	for _, a := range []Agent{Antigravity, Kiro} {
 		deps := RequiredTools(a)
 		for _, d := range deps {
 			if d == "nodejs" {

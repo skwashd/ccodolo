@@ -52,15 +52,14 @@ func SetupCopilot(projectPath, projectName string) error {
 	return writeJSON(configPath, cfg)
 }
 
-// SetupGemini configures context in .gemini/settings.json.
-func SetupGemini(projectPath, projectName string) error {
-	configDir := filepath.Join(projectPath, ".gemini")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
+// SetupAntigravity disables telemetry in .gemini/antigravity-cli/settings.json.
+func SetupAntigravity(projectPath string) error {
+	settingsDir := filepath.Join(projectPath, ".gemini", "antigravity-cli")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		return err
 	}
 
-	configPath := filepath.Join(configDir, "settings.json")
-	projectDir := "/workspace/" + projectName
+	configPath := filepath.Join(settingsDir, "settings.json")
 
 	cfg := make(map[string]interface{})
 	if data, err := os.ReadFile(configPath); err == nil {
@@ -69,37 +68,7 @@ func SetupGemini(projectPath, projectName string) error {
 		}
 	}
 
-	// Get or create context.
-	ctx, _ := cfg["context"].(map[string]interface{})
-	if ctx == nil {
-		ctx = make(map[string]interface{})
-	}
-
-	// Update includeDirectories.
-	var dirs []string
-	if raw, ok := ctx["includeDirectories"]; ok {
-		if arr, ok := raw.([]interface{}); ok {
-			for _, v := range arr {
-				if s, ok := v.(string); ok {
-					dirs = append(dirs, s)
-				}
-			}
-		}
-	}
-	found := false
-	for _, d := range dirs {
-		if d == projectDir {
-			found = true
-			break
-		}
-	}
-	if !found {
-		dirs = append(dirs, projectDir)
-	}
-	ctx["includeDirectories"] = dirs
-	ctx["fileName"] = []string{"AGENTS.md", "GEMINI.md"}
-
-	cfg["context"] = ctx
+	cfg["enableTelemetry"] = false
 	return writeJSON(configPath, cfg)
 }
 

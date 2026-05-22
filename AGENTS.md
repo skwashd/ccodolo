@@ -41,7 +41,7 @@ ccodolo/
 │   ├── project/
 │   │   ├── project.go               # Dir creation, template copying
 │   │   ├── project_test.go
-│   │   ├── setup.go                 # Agent-specific JSON config (copilot/gemini/kiro)
+│   │   ├── setup.go                 # Agent-specific JSON config (copilot/kiro)
 │   │   └── setup_test.go
 │   └── tool/
 │       ├── tool.go                  # Tool catalog, dependency resolution
@@ -96,7 +96,7 @@ golangci-lint run ./...
 
 - Tool source images are pinned in `internal/tool/tool.go`
 - Custom build steps only allow RUN, COPY, ADD (other instructions are lost in squash)
-- npm-based agents (codex, copilot, gemini, opencode) auto-include nodejs as a dependency
+- npm-based agents (codex, copilot, opencode) auto-include nodejs as a dependency
 
 ## Testing Changes
 
@@ -116,7 +116,7 @@ exit
 ./ccodolo --project test-changes --agent copilot  # Test switching
 
 # Test reconfigure with flags
-./ccodolo --project test-changes --reconfigure --agent gemini --tools python:3.12-slim,nodejs
+./ccodolo --project test-changes --reconfigure --agent antigravity --tools python:3.12-slim,nodejs
 # Verify: ccodolo.toml updated, diff shown before applying
 
 # Test reconfigure interactive (manual)
