@@ -49,6 +49,7 @@ The interactive TUI will let you select dev tools. The container will start with
 
 ## Supported Agents
 
+- **antigravity** - Google Antigravity CLI
 - **claude** - Anthropic Claude Code
 - **codex** - OpenAI Codex
 - **copilot** - GitHub Copilot CLI
@@ -528,6 +529,11 @@ Each agent requires authentication within the container. Credentials are stored 
 - **Setup**: Authenticate within the container on first run
 - **Requirements**: ChatGPT Plus, Pro, Team, Edu, or Enterprise account
 - **Documentation**: https://openai.com/codex
+
+### Google Antigravity
+- **Config directory**: `.gemini/` (Antigravity reuses Gemini's settings tree at `~/.gemini/antigravity-cli/settings.json`)
+- **Setup**: Authenticate within the container on first run
+- **Documentation**: https://antigravity.google/docs <!-- TODO: confirm URL before merge -->
 
 ### Google Gemini
 - **Config directory**: `.gemini/`

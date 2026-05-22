@@ -6,17 +6,18 @@ import "fmt"
 type Agent string
 
 const (
-	Claude   Agent = "claude"
-	Codex    Agent = "codex"
-	Copilot  Agent = "copilot"
-	Gemini   Agent = "gemini"
-	Kiro     Agent = "kiro"
-	OpenCode Agent = "opencode"
+	Antigravity Agent = "antigravity"
+	Claude      Agent = "claude"
+	Codex       Agent = "codex"
+	Copilot     Agent = "copilot"
+	Gemini      Agent = "gemini"
+	Kiro        Agent = "kiro"
+	OpenCode    Agent = "opencode"
 )
 
 // All returns all supported agents.
 func All() []Agent {
-	return []Agent{Claude, Codex, Copilot, Gemini, Kiro, OpenCode}
+	return []Agent{Antigravity, Claude, Codex, Copilot, Gemini, Kiro, OpenCode}
 }
 
 // AllNames returns the string names of all supported agents.
@@ -60,6 +61,12 @@ type Meta struct {
 }
 
 var registry = map[Agent]Meta{
+	Antigravity: {
+		Name:       Antigravity,
+		ConfigDir:  ".gemini",
+		InstallCmd: `RUN curl -fsSL https://antigravity.google/cli/install.sh | bash`,
+		Entrypoint: []string{"agy", "--dangerously-skip-permissions"},
+	},
 	Claude: {
 		Name:       Claude,
 		ConfigDir:  ".claude",

@@ -52,6 +52,26 @@ func SetupCopilot(projectPath, projectName string) error {
 	return writeJSON(configPath, cfg)
 }
 
+// SetupAntigravity disables telemetry in .gemini/antigravity-cli/settings.json.
+func SetupAntigravity(projectPath string) error {
+	settingsDir := filepath.Join(projectPath, ".gemini", "antigravity-cli")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(settingsDir, "settings.json")
+
+	cfg := make(map[string]interface{})
+	if data, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			return fmt.Errorf("parsing %s: %w", configPath, err)
+		}
+	}
+
+	cfg["enableTelemetry"] = false
+	return writeJSON(configPath, cfg)
+}
+
 // SetupGemini configures context in .gemini/settings.json.
 func SetupGemini(projectPath, projectName string) error {
 	configDir := filepath.Join(projectPath, ".gemini")

@@ -58,6 +58,37 @@ func TestRenderDockerfileClaude(t *testing.T) {
 	}
 }
 
+func TestRenderDockerfileAntigravity(t *testing.T) {
+	cfg := &config.Config{
+		Agent: "antigravity",
+	}
+
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Antigravity is curl-installed and does NOT depend on nodejs.
+	if strings.Contains(result, "# Tool: nodejs") {
+		t.Error("should NOT auto-add nodejs for antigravity agent")
+	}
+
+	// Without nodejs there should be no npm config block.
+	if strings.Contains(result, "prefix=/home/coder/.local/") {
+		t.Error("should NOT contain npm config when nodejs is absent")
+	}
+
+	// Should contain the antigravity install command.
+	if !strings.Contains(result, "antigravity.google/cli/install.sh") {
+		t.Error("should contain antigravity install command")
+	}
+
+	// Should contain antigravity entrypoint.
+	if !strings.Contains(result, `["agy","--dangerously-skip-permissions"]`) {
+		t.Error("should contain antigravity entrypoint")
+	}
+}
+
 func TestRenderDockerfileGemini(t *testing.T) {
 	cfg := &config.Config{
 		Agent: "gemini",
@@ -330,7 +361,7 @@ func TestRenderDockerfileNoUsernameArg(t *testing.T) {
 }
 
 func TestRenderDockerfileAllAgents(t *testing.T) {
-	agents := []string{"claude", "codex", "copilot", "gemini", "kiro", "opencode"}
+	agents := []string{"antigravity", "claude", "codex", "copilot", "gemini", "kiro", "opencode"}
 	for _, a := range agents {
 		t.Run(a, func(t *testing.T) {
 			cfg := &config.Config{Agent: a}

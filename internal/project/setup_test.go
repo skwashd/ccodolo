@@ -102,6 +102,65 @@ func TestSetupCopilotExistingConfig(t *testing.T) {
 	}
 }
 
+func TestSetupAntigravity(t *testing.T) {
+	dir := t.TempDir()
+
+	err := SetupAntigravity(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	configPath := filepath.Join(dir, ".gemini", "antigravity-cli", "settings.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("expected settings.json to exist: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if cfg["enableTelemetry"] != false {
+		t.Errorf("expected enableTelemetry=false, got %v", cfg["enableTelemetry"])
+	}
+}
+
+func TestSetupAntigravityExistingConfig(t *testing.T) {
+	dir := t.TempDir()
+	settingsDir := filepath.Join(dir, ".gemini", "antigravity-cli")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	existing := map[string]interface{}{
+		"other_setting":   true,
+		"enableTelemetry": true,
+	}
+	data, _ := json.Marshal(existing)
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), data, 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	err := SetupAntigravity(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	result, _ := os.ReadFile(filepath.Join(settingsDir, "settings.json"))
+	var cfg map[string]interface{}
+	if err := json.Unmarshal(result, &cfg); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if cfg["enableTelemetry"] != false {
+		t.Errorf("expected enableTelemetry=false, got %v", cfg["enableTelemetry"])
+	}
+	if cfg["other_setting"] != true {
+		t.Error("expected other_setting to be preserved")
+	}
+}
+
 func TestSetupGemini(t *testing.T) {
 	dir := t.TempDir()
 
