@@ -418,12 +418,30 @@ var builtinCatalog = []Tool{
 	{
 		Name:         "playwright",
 		Category:     "testing",
-		Description:  "Playwright browser testing CLI",
-		DefaultTag:   "1.59.1",
+		Description:  "Playwright browser testing CLI with pre-built Chromium",
+		DefaultTag:   "1.60.0",
+		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
-			"RUN npm install -g @playwright/cli@{{.Tag}}",
-			"RUN playwright-cli install-browser chromium",
+			"COPY --from=mcr.microsoft.com/playwright:v{{.Version}} /ms-playwright /ms-playwright",
+			`RUN npm install -g playwright@{{.Version}} \` + "\n" +
+				`  && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install-deps chromium \` + "\n" +
+				`  && rm -rf /var/lib/apt/lists/*`,
+		},
+		EnvVars: map[string]string{
+			"PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+		},
+	},
+	{
+		Name:         "playwright-cli",
+		Category:     "testing",
+		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
+		DefaultTag:   "0.1.13",
+		Dependencies: []string{"playwright"},
+		Instructions: []string{
+			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
+				`    | tar xz -C /usr/local/lib/node_modules --transform 's|^package|@playwright/cli|' \` + "\n" +
+				`  && ln -s /usr/local/lib/node_modules/@playwright/cli/playwright-cli.js /usr/local/bin/playwright-cli`,
 		},
 	},
 
@@ -462,7 +480,7 @@ var builtinCatalog = []Tool{
 			"GH_TELEMETRY": "false",
 		},
 	},
-		{
+	{
 		Name:        "imagemagick",
 		Category:    "utils",
 		Description: "ImageMagick image processing suite",
