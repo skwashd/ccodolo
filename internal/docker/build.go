@@ -77,6 +77,7 @@ func Build(cfg *config.Config, project string, force bool) (string, error) {
 	// Run docker build.
 	fmt.Fprintf(os.Stderr, "Building image %s...\n", tag)
 	cmd := exec.Command("docker", "build",
+		"--progress=plain",
 		"--build-arg", "CCODOLO_AGENT="+cfg.Agent,
 		"-t", tag, ".")
 	cmd.Dir = tmpDir
