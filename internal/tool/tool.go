@@ -489,6 +489,28 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "linear-cli",
+		Category:     "utils",
+		Description:  "Linear CLI (unofficial)",
+		DefaultTag:   "2.0.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
+		},
+	},
+	{
+		Name:        "lychee",
+		Category:    "utils",
+		Description: "Lychee link checker",
+		DefaultTag:  "0.24.2",
+		Instructions: []string{
+			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
+				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
+				`  && curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/lychee-v{{.Tag}}/lychee-${ARCH}-unknown-linux-gnu.tar.gz" \` + "\n" +
+				`  | tar xz -C /usr/local/bin lychee`,
+		},
+	},
+	{
 		Name:        "make",
 		Category:    "utils",
 		Description: "GNU Make",
