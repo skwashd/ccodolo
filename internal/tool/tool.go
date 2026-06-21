@@ -539,6 +539,16 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "readwise",
+		Category:     "utils",
+		Description:  "Readwise Reader CLI",
+		DefaultTag:   "0.1.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g readwise-reader-cli@{{.Tag}}",
+		},
+	},
+	{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
