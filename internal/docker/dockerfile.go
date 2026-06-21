@@ -43,6 +43,14 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 	selections := cfg.ToolSelections()
 	selections = addAgentDeps(selections, meta)
 
+	// Sort selections by name for deterministic Dockerfile output.
+	// cfg.Tools is a map, so ToolSelections() returns entries in random order;
+	// without sorting here the rendered Dockerfile (and its SHA-256 image tag)
+	// would differ on every run, defeating the rebuild-on-change cache.
+	sort.Slice(selections, func(i, j int) bool {
+		return selections[i].Name < selections[j].Name
+	})
+
 	// Resolve all tool dependencies and generate instructions.
 	resolved, err := tool.Resolve(selections)
 	if err != nil {
@@ -92,11 +100,12 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 			`RUN printf 'prefix=/home/coder/.local/\ncache=/home/coder/.npm\nglobal=true\n' > ~/.npmrc`
 	}
 
-	// Agent extra env.
+	// Agent extra env. Sort for deterministic output (meta.ExtraEnv is a map).
 	var envLines []string
 	for k, v := range meta.ExtraEnv {
 		envLines = append(envLines, fmt.Sprintf("%s=%s", k, v))
 	}
+	sort.Strings(envLines)
 
 	// Entrypoint as JSON array.
 	epJSON, err := json.Marshal(meta.Entrypoint)

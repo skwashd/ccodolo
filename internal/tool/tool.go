@@ -489,6 +489,28 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "linear-cli",
+		Category:     "utils",
+		Description:  "Linear CLI (unofficial)",
+		DefaultTag:   "2.0.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
+		},
+	},
+	{
+		Name:        "lychee",
+		Category:    "utils",
+		Description: "Lychee link checker",
+		DefaultTag:  "0.24.2",
+		Instructions: []string{
+			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
+				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
+				`  && curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/lychee-v{{.Tag}}/lychee-${ARCH}-unknown-linux-gnu.tar.gz" \` + "\n" +
+				`  | tar xz -C /usr/local/bin lychee`,
+		},
+	},
+	{
 		Name:        "make",
 		Category:    "utils",
 		Description: "GNU Make",
@@ -517,6 +539,16 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "readwise",
+		Category:     "utils",
+		Description:  "Readwise Reader CLI",
+		DefaultTag:   "0.1.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g readwise-reader-cli@{{.Tag}}",
+		},
+	},
+	{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
@@ -534,6 +566,19 @@ var builtinCatalog = []Tool{
 		Description: "OpenSSH client",
 		Instructions: []string{
 			"RUN apt update && apt install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*",
+		},
+	},
+	{
+		Name:        "twg",
+		Category:    "utils",
+		Description: "Atlassian Teamwork Graph CLI",
+		DefaultTag:  "1.0.1",
+		Instructions: []string{
+			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
+				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x64; fi \` + "\n" +
+				`  && curl -fsSL "https://teamwork-graph.atlassian.com/cli/twg-linux-${ARCH}-v{{.Tag}}" \` + "\n" +
+				`  -o /usr/local/bin/twg \` + "\n" +
+				`  && chmod +x /usr/local/bin/twg`,
 		},
 	},
 	{

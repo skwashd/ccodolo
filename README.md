@@ -121,6 +121,11 @@ CCoDoLo uses TOML configuration with two levels:
 
 ```toml
 agent = "claude"
+passthrough_vars = [
+    "GITHUB_TOKEN",
+    "AWS_SECRET_ACCESS_KEY",
+    "ANTHROPIC_API_KEY",
+]
 
 [tools]
 python = ""
@@ -158,6 +163,15 @@ AWS_PROFILE = "dev"
 | `build.custom_steps` | Concatenated (global first, then project) |
 | `volumes` | Union (project overrides if same container path) |
 | `environment` | Merged (project keys override global) |
+| `passthrough_vars` | Union (deduplicated, preserves order; global entries first) |
+
+### Passthrough env vars
+
+`passthrough_vars` lists host environment variable names to forward into the container at run time, reading the value from the shell that invokes `ccodolo`. Use this for secrets (API keys, tokens) that should not be committed to `ccodolo.toml`.
+
+The host name is reused as the container name. If a listed variable is not set on the host when ccodolo runs, a warning is printed to stderr and the variable is omitted (the container starts normally).
+
+`passthrough_vars` is a top-level key — like `agent` and `tools`, it must appear *before* any `[table]` header (`[environment]`, `[build]`, `[[volumes]]`) or TOML will scope it inside that table.
 
 ### Migration from ccodolo.config
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -13,12 +14,16 @@ import (
 
 // Config represents the ccodolo.toml configuration.
 type Config struct {
-	Agent       string            `toml:"agent"`
-	Tools       map[string]string `toml:"tools"`
-	Build       BuildConfig       `toml:"build"`
-	Volumes     []Volume          `toml:"volumes"`
-	Environment map[string]string `toml:"environment"`
+	Agent           string            `toml:"agent"`
+	Tools           map[string]string `toml:"tools"`
+	Build           BuildConfig       `toml:"build"`
+	Volumes         []Volume          `toml:"volumes"`
+	Environment     map[string]string `toml:"environment"`
+	PassthroughVars []string          `toml:"passthrough_vars"`
 }
+
+// envVarNameRegexp matches a valid POSIX environment variable name.
+var envVarNameRegexp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // ToolEntry represents a tool selection used internally.
 type ToolEntry struct {
@@ -169,6 +174,7 @@ func Save(cfg *Config, path string) error {
 // - build.root_steps: concatenated (global first, then project)
 // - volumes: union (project overrides if same container path)
 // - environment: merged (project keys override global)
+// - passthrough_vars: union (deduplicated, preserves order; global entries first)
 func Merge(global, project *Config) *Config {
 	result := &Config{}
 
@@ -224,6 +230,21 @@ func Merge(global, project *Config) *Config {
 		result.Environment = nil
 	}
 
+	// PassthroughVars: union, preserving order, global entries first.
+	seen := make(map[string]bool)
+	for _, name := range global.PassthroughVars {
+		if !seen[name] {
+			seen[name] = true
+			result.PassthroughVars = append(result.PassthroughVars, name)
+		}
+	}
+	for _, name := range project.PassthroughVars {
+		if !seen[name] {
+			seen[name] = true
+			result.PassthroughVars = append(result.PassthroughVars, name)
+		}
+	}
+
 	return result
 }
 
@@ -255,6 +276,17 @@ func Validate(cfg *Config) error {
 		if !filepath.IsAbs(v.Container) {
 			return fmt.Errorf("volume container path must be absolute: %q", v.Container)
 		}
+	}
+
+	seenPassthrough := make(map[string]bool)
+	for _, name := range cfg.PassthroughVars {
+		if !envVarNameRegexp.MatchString(name) {
+			return fmt.Errorf("invalid passthrough_vars entry %q: must match [A-Za-z_][A-Za-z0-9_]*", name)
+		}
+		if seenPassthrough[name] {
+			return fmt.Errorf("duplicate passthrough_vars entry %q", name)
+		}
+		seenPassthrough[name] = true
 	}
 
 	return nil
