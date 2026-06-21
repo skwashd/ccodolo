@@ -569,6 +569,19 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:        "twg",
+		Category:    "utils",
+		Description: "Atlassian Teamwork Graph CLI",
+		DefaultTag:  "1.0.1",
+		Instructions: []string{
+			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
+				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x64; fi \` + "\n" +
+				`  && curl -fsSL "https://teamwork-graph.atlassian.com/cli/twg-linux-${ARCH}-v{{.Tag}}" \` + "\n" +
+				`  -o /usr/local/bin/twg \` + "\n" +
+				`  && chmod +x /usr/local/bin/twg`,
+		},
+	},
+	{
 		Name:        "wget",
 		Category:    "utils",
 		Description: "GNU Wget",
