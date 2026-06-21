@@ -86,6 +86,17 @@ func Run(cfg *config.Config, project, workdir, imageTag string, extraArgs []stri
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Passthrough env vars from the host shell. Docker reads the value from
+	// our environment (preserved by the unix.Exec below), so we just append
+	// `-e NAME` with no `=value`.
+	for _, name := range cfg.PassthroughVars {
+		if _, ok := os.LookupEnv(name); !ok {
+			fmt.Fprintf(os.Stderr, "Warning: passthrough_vars entry %q is not set on host; skipping\n", name)
+			continue
+		}
+		args = append(args, "-e", name)
+	}
+
 	// Image tag.
 	args = append(args, imageTag)
 

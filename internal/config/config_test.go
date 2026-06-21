@@ -13,6 +13,7 @@ func TestLoadFileParsesToml(t *testing.T) {
 
 	content := `
 agent = "claude"
+passthrough_vars = ["GITHUB_TOKEN", "AWS_SECRET_ACCESS_KEY"]
 
 [tools]
 python = ""
@@ -73,6 +74,12 @@ AWS_PROFILE = "dev"
 	}
 	if cfg.Environment["AWS_PROFILE"] != "dev" {
 		t.Errorf("expected AWS_PROFILE='dev', got %q", cfg.Environment["AWS_PROFILE"])
+	}
+	if len(cfg.PassthroughVars) != 2 {
+		t.Fatalf("expected 2 passthrough_vars, got %d", len(cfg.PassthroughVars))
+	}
+	if cfg.PassthroughVars[0] != "GITHUB_TOKEN" || cfg.PassthroughVars[1] != "AWS_SECRET_ACCESS_KEY" {
+		t.Errorf("unexpected passthrough_vars order: %v", cfg.PassthroughVars)
 	}
 }
 
@@ -262,6 +269,22 @@ func TestMergeEnvironment(t *testing.T) {
 	}
 }
 
+func TestMergePassthroughVars(t *testing.T) {
+	global := &Config{PassthroughVars: []string{"A", "B"}}
+	project := &Config{PassthroughVars: []string{"B", "C"}}
+	result := Merge(global, project)
+
+	want := []string{"A", "B", "C"}
+	if len(result.PassthroughVars) != len(want) {
+		t.Fatalf("expected %d passthrough_vars, got %d (%v)", len(want), len(result.PassthroughVars), result.PassthroughVars)
+	}
+	for i, name := range want {
+		if result.PassthroughVars[i] != name {
+			t.Errorf("at index %d: expected %q, got %q", i, name, result.PassthroughVars[i])
+		}
+	}
+}
+
 func TestValidate(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		cfg := &Config{
@@ -354,6 +377,46 @@ func TestValidate(t *testing.T) {
 		cfg := &Config{}
 		if err := Validate(cfg); err != nil {
 			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("valid passthrough_vars", func(t *testing.T) {
+		cfg := &Config{
+			Agent:           "claude",
+			PassthroughVars: []string{"GITHUB_TOKEN", "_FOO", "BAR_BAZ_1"},
+		}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("passthrough_vars starting with digit", func(t *testing.T) {
+		cfg := &Config{
+			Agent:           "claude",
+			PassthroughVars: []string{"1BAD"},
+		}
+		if err := Validate(cfg); err == nil {
+			t.Error("expected error for name starting with digit")
+		}
+	})
+
+	t.Run("passthrough_vars containing space", func(t *testing.T) {
+		cfg := &Config{
+			Agent:           "claude",
+			PassthroughVars: []string{"HAS SPACE"},
+		}
+		if err := Validate(cfg); err == nil {
+			t.Error("expected error for name with space")
+		}
+	})
+
+	t.Run("duplicate passthrough_vars", func(t *testing.T) {
+		cfg := &Config{
+			Agent:           "claude",
+			PassthroughVars: []string{"FOO", "FOO"},
+		}
+		if err := Validate(cfg); err == nil {
+			t.Error("expected error for duplicate entries")
 		}
 	})
 }
