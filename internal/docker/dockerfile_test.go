@@ -329,6 +329,44 @@ func TestRenderDockerfileNoUsernameArg(t *testing.T) {
 	}
 }
 
+// TestRenderDockerfileDeterministic verifies that RenderDockerfile produces
+// byte-identical output on repeated calls with the same config.
+//
+// The main risk is map iteration order: cfg.Tools and meta.ExtraEnv are both
+// maps, so without explicit sorting their iteration order varies per run,
+// producing a different Dockerfile (and thus a different image tag) each launch.
+// This test catches any regression in that sorting.
+func TestRenderDockerfileDeterministic(t *testing.T) {
+	// Use claude with multiple tools so ≥3 tool blocks (python, uv, nodejs dep)
+	// are emitted and their order would shuffle without the sort.
+	cfg := &config.Config{
+		Agent: "claude",
+		Tools: map[string]string{
+			"python": "",
+			"uv":     "",
+			"golang": "",
+		},
+	}
+
+	first, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("first render failed: %v", err)
+	}
+
+	// Go randomizes map iteration per run, so repeated calls within the same
+	// process reliably hit different orderings.  50 iterations is more than
+	// enough to surface any nondeterminism with 4 tools (including nodejs dep).
+	for i := 1; i <= 50; i++ {
+		got, err := RenderDockerfile(cfg)
+		if err != nil {
+			t.Fatalf("render #%d failed: %v", i, err)
+		}
+		if got != first {
+			t.Fatalf("render #%d produced different output — Dockerfile is not deterministic", i)
+		}
+	}
+}
+
 func TestRenderDockerfileAllAgents(t *testing.T) {
 	agents := []string{"antigravity", "claude", "codex", "copilot", "kiro", "opencode"}
 	for _, a := range agents {
