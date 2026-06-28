@@ -102,7 +102,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Java (Eclipse Temurin) JDK",
 		SourceImage: "public.ecr.aws/docker/library/eclipse-temurin",
-		DefaultTag:  "21",
+		DefaultTag:  "26",
 		TagSuffix:   "-jdk",
 		Instructions: []string{
 			"COPY --from=%s /opt/java/openjdk /opt/java/openjdk",
