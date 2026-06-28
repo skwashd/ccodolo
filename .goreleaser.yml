@@ -1,7 +1,8 @@
 version: 2
 
 builds:
-  - env:
+  - id: ccodolo
+    env:
       - CGO_ENABLED=0
     goos:
       - darwin
@@ -14,6 +15,28 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
+
+universal_binaries:
+  - id: ccodolo-universal
+    ids:
+      - ccodolo
+    name_template: "{{ .ProjectName }}"
+    replace: true
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - ccodolo-universal
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
+        timeout: 20m
 
 checksum:
   name_template: "checksums.txt"
