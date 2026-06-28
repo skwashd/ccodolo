@@ -144,7 +144,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Python",
 		SourceImage: "public.ecr.aws/docker/library/python",
-		DefaultTag:  "3.13",
+		DefaultTag:  "3.14",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/python{{.Version}} /usr/local/lib/python{{.Version}}",
