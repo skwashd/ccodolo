@@ -183,16 +183,16 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 
 | Tool | Category | Description |
 |------|----------|-------------|
-| `python` | Runtime | Python 3.13 |
-| `nodejs` | Runtime | Node.js 22 |
-| `golang` | Runtime | Go 1.24 |
+| `python` | Runtime | Python 3.14 |
+| `nodejs` | Runtime | Node.js 26 |
+| `golang` | Runtime | Go 1.26 |
 | `bun` | Runtime | Bun runtime |
 | `rust` | Runtime | Rust toolchain (includes cargo) |
-| `ruby` | Runtime | Ruby 3.3 |
+| `ruby` | Runtime | Ruby 4.0 |
 | `deno` | Runtime | Deno runtime |
-| `php` | Runtime | PHP 8.4 |
+| `php` | Runtime | PHP 8.5 |
 | `dotnet` | Runtime | .NET SDK 9.0 |
-| `java` | Runtime | Eclipse Temurin JDK 21 |
+| `java` | Runtime | Eclipse Temurin JDK 26 |
 | `uv` | Package Manager | Python package manager (astral-sh/uv) |
 | `composer` | Package Manager | Composer PHP package manager |
 | `gradle` | Package Manager | Gradle build tool |

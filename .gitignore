@@ -28,8 +28,9 @@ go.work
 
 # ccodolo speicifc
 
-## Built binary
+## Built binaries
 ccodolo
+updater
 
 ## user data paths
 projects/
