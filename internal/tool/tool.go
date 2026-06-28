@@ -174,9 +174,10 @@ var builtinCatalog = []Tool{
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/python{{.Version}} /usr/local/lib/python{{.Version}}",
+			"COPY --from=%s /usr/local/lib/libpython{{.Version}}.so* /usr/local/lib/",
 			"COPY --from=%s /usr/local/bin/python3* /usr/local/bin/",
 			"COPY --from=%s /usr/local/bin/pip* /usr/local/bin/",
-			"RUN ln -sf /usr/local/bin/python3 /usr/local/bin/python",
+			"RUN ln -sf /usr/local/bin/python3 /usr/local/bin/python && ldconfig",
 		},
 		UpdateSource: UpdateDockerHub,
 		UpdateRef:    "library/python",
