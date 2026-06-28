@@ -13,6 +13,9 @@ The project name is a combination of Claude Code, Docker and YOLO. The original 
 ### Install
 
 ```bash
+# macOS — Homebrew (notarized universal binary, recommended for macOS)
+brew install --cask skwashd/tap/ccodolo
+
 # Using Go
 go install github.com/skwashd/ccodolo@latest
 
