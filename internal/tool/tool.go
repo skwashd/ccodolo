@@ -271,7 +271,7 @@ var builtinCatalog = []Tool{
 		Name:         "yarn",
 		Category:     "package-manager",
 		Description:  "Yarn package manager",
-		DefaultTag:   "1.22.22",
+		DefaultTag:   "2.4.3",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g yarn@{{.Tag}}",
