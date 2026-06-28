@@ -158,7 +158,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Ruby",
 		SourceImage: "public.ecr.aws/docker/library/ruby",
-		DefaultTag:  "3.3",
+		DefaultTag:  "4.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/ruby /usr/local/lib/ruby",
