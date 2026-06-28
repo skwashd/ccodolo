@@ -47,3 +47,19 @@ changelog:
       - "^docs:"
       - "^ci:"
       - "^test:"
+
+homebrew_casks:
+  - name: ccodolo
+    binaries:
+      - ccodolo
+    repository:
+      owner: skwashd
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/skwashd/ccodolo"
+    description: "Sandboxed Docker containers for running AI coding assistants in YOLO mode"
+    license: "MIT"
+    commit_author:
+      name: goreleaserbot
+      email: skwashd@gmail.com
