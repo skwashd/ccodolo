@@ -193,7 +193,7 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "public.ecr.aws/docker/library/composer",
-		DefaultTag:   "2.9.5",
+		DefaultTag:   "2.10.1",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
