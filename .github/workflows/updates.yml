@@ -283,11 +283,8 @@ jobs:
           if [ -n "$minor_names" ]; then
             git checkout -f -B automated/tool-updates-minor origin/main
             go run ./internal/updater -write -only="$minor_names"
-            body=$(jq -r '[.[]|select(.bump!="major")|"- **(.name)**: `(.old_tag)` → `(.new_tag)` ((.bump))"]|join("
-")' <<<"$PLAN")
-            body="## Tool updates"$'
-
-'"${body}"
+            body=$(jq -r '[.[]|select(.bump!="major")|"- **(.name)**: `(.old_tag)` → `(.new_tag)` ((.bump))"]|join("\n")' <<<"$PLAN")
+            body=$'## Tool updates\n\n'"${body}"
             minor_titles=$(jq -r '[.[]|select(.bump!="major")|.name]|join(", ")' <<<"$PLAN")
             upsert_pr automated/tool-updates-minor "Update tools: ${minor_titles}" "$body"
           fi
@@ -296,11 +293,7 @@ jobs:
             [ -z "$t" ] && continue
             git checkout -f -B "automated/tool-update-major-$t" origin/main
             go run ./internal/updater -write -only="$t"
-            body=$(jq -r --arg n "$t" '.[]|select(.name==$n)|"- **(.name)**: `(.old_tag)` → `(.new_tag)` (major)
-
-> ⚠️ Major bump — review upstream release notes."' <<<"$PLAN")
-            body="## Tool updates"$'
-
-'"${body}"
+            body=$(jq -r --arg n "$t" '.[]|select(.name==$n)|"- **(.name)**: `(.old_tag)` → `(.new_tag)` (major)\n\n> ⚠️ Major bump — review upstream release notes."' <<<"$PLAN")
+            body=$'## Tool updates\n\n'"${body}"
             upsert_pr "automated/tool-update-major-$t" "Update tools: $t (major)" "$body"
           done <<<"$major_names"
