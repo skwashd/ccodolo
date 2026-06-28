@@ -19,6 +19,8 @@ go install github.com/skwashd/ccodolo@latest
 # Or download a pre-built binary from GitHub releases:
 # 1. Download the archive for your OS/architecture from:
 #    https://github.com/skwashd/ccodolo/releases/latest
+#    macOS: ccodolo_*_darwin_all.tar.gz  (universal binary, runs on Intel and Apple Silicon)
+#    Linux: ccodolo_*_linux_amd64.tar.gz or ccodolo_*_linux_arm64.tar.gz
 # 2. Extract and move to a directory in your PATH:
 tar xzf ccodolo_*.tar.gz
 sudo mv ccodolo /usr/local/bin/
@@ -27,6 +29,12 @@ mkdir -p ~/.local/bin && mv ccodolo ~/.local/bin/
 # Ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc):
 # export PATH="$HOME/.local/bin:$PATH"
 ```
+
+> **macOS note:** release binaries are signed with a Developer ID certificate and notarized
+> with Apple. Archives downloaded via a browser pass Gatekeeper's online check on first run
+> (network access to Apple's servers is required for that first check). Binaries installed
+> via `go install` or downloaded with `curl`/`wget` are not quarantined, so Gatekeeper is
+> not invoked for those paths.
 
 ### Build from source
 
