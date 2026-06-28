@@ -63,3 +63,29 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: go build -o /dev/null ./...
+
+  docker-build:
+    name: Build image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build ccodolo binary
+        run: go build -o ccodolo .
+
+      - name: Build image and run toolchain smoke test
+        run: |
+          IMAGE=$(./ccodolo --project ci-smoke --create-new --agent claude --tools nodejs,golang,python --build-only --rebuild | tail -n1)
+          echo "Built image: $IMAGE"
+          timeout 60 docker run --rm --entrypoint sh "$IMAGE" -c 'node --version && go version && python3 --version && claude --version'

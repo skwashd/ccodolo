@@ -20,7 +20,7 @@ ccodolo/
 │   └── workflows/
 │       ├── release.yml              # goreleaser (triggered by v* tags)
 │       ├── updates.yml              # daily agent + tool version bumps (opens PRs)
-│       ├── validate.yml             # go vet, go test, golangci-lint, cross-platform build
+│       ├── validate.yml             # go vet, go test, golangci-lint, cross-platform build, docker image smoke test
 │       └── zizmor.yml               # GitHub Actions security scanning
 ├── .goreleaser.yml                  # Cross-platform binaries + checksums + build attestation
 ├── go.mod / go.sum
@@ -154,7 +154,7 @@ exit
 
 ## CI/CD
 
-- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint`, plus a cross-platform build matrix (`linux,darwin` × `amd64,arm64`)
+- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint`, plus a cross-platform build matrix (`linux,darwin` × `amd64,arm64`), and a Docker image smoke test that builds a `claude` + node/go/python image via `ccodolo --build-only` and runs it to verify the toolchain is launchable inside the squashed image
 - **release.yml**: Triggered by `v*` tags — runs goreleaser to build cross-platform binaries + `checksums.txt`, and attests the checksums (`actions/attest`); artifacts published to GitHub releases
 - **zizmor.yml**: GitHub Actions security scanning
 - **updates.yml**: Daily cron (`7 20 * * *`) — two jobs:
