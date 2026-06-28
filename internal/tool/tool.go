@@ -11,22 +11,36 @@ import (
 	"text/template"
 )
 
+// UpdateSource identifies the upstream registry the automated updater queries
+// for new versions. Empty means the tool is excluded from auto-updates.
+type UpdateSource string
+
+const (
+	UpdateDockerHub UpdateSource = "docker-hub"      // hub.docker.com
+	UpdateGitHub    UpdateSource = "github-releases" // api.github.com releases
+	UpdateNPM       UpdateSource = "npm"             // registry.npmjs.org
+	UpdatePyPI      UpdateSource = "pypi"            // pypi.org
+	UpdateQuay      UpdateSource = "quay"            // quay.io
+)
+
 // Tool represents a bundled dev tool that can be installed in the container.
 //
 // JSON tags allow Tool entries to be loaded from ~/.ccodolo/custom-tools.json.
 // The Category field is parsed but always overwritten to "custom" for any
 // tool loaded from that file.
 type Tool struct {
-	Name         string            `json:"name"`                   // unique identifier, e.g. "python"
-	Category     string            `json:"category,omitempty"`     // "runtime", "package-manager", "cloud", "custom"
-	Description  string            `json:"description,omitempty"`  // shown in TUI
-	SourceImage  string            `json:"source_image,omitempty"` // Docker image to COPY from, e.g. "public.ecr.aws/docker/library/python"
-	DefaultTag   string            `json:"default_tag,omitempty"`  // e.g. "3.13-slim"
-	TagSuffix    string            `json:"tag_suffix,omitempty"`   // image variant suffix, e.g. "-slim", appended to user-provided version
-	Instructions []string          `json:"instructions"`           // Dockerfile lines (COPY, RUN, ENV)
-	Dependencies []string          `json:"dependencies,omitempty"` // other tool names auto-included
-	PathEntries  []string          `json:"path_entries,omitempty"` // paths to prepend to PATH in final stage
-	EnvVars      map[string]string `json:"env_vars,omitempty"`     // env vars for the final stage
+	Name         string            `json:"name"`                    // unique identifier, e.g. "python"
+	Category     string            `json:"category,omitempty"`      // "runtime", "package-manager", "cloud", "custom"
+	Description  string            `json:"description,omitempty"`   // shown in TUI
+	SourceImage  string            `json:"source_image,omitempty"`  // Docker image to COPY from, e.g. "public.ecr.aws/docker/library/python"
+	DefaultTag   string            `json:"default_tag,omitempty"`   // e.g. "3.13-slim"
+	TagSuffix    string            `json:"tag_suffix,omitempty"`    // image variant suffix, e.g. "-slim", appended to user-provided version
+	Instructions []string          `json:"instructions"`            // Dockerfile lines (COPY, RUN, ENV)
+	Dependencies []string          `json:"dependencies,omitempty"`  // other tool names auto-included
+	PathEntries  []string          `json:"path_entries,omitempty"`  // paths to prepend to PATH in final stage
+	EnvVars      map[string]string `json:"env_vars,omitempty"`      // env vars for the final stage
+	UpdateSource UpdateSource      `json:"update_source,omitempty"` // registry to query; "" = skip
+	UpdateRef    string            `json:"update_ref,omitempty"`    // "owner/repo", npm pkg, pypi project
 }
 
 // DefaultVersion returns the version part of DefaultTag with the TagSuffix stripped.
@@ -56,21 +70,25 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.3.12",
+		DefaultTag:  "1.3.14",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "oven/bun",
 	},
 	{
 		Name:        "deno",
 		Category:    "runtime",
 		Description: "Deno runtime",
 		SourceImage: "denoland/deno",
-		DefaultTag:  "2.7.12",
+		DefaultTag:  "2.9.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/deno /usr/local/bin/deno",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "denoland/deno",
 	},
 	{
 		Name:        "dotnet",
@@ -96,13 +114,15 @@ var builtinCatalog = []Tool{
 			"COPY --from=%s /usr/local/go /usr/local/go",
 			"RUN ln -sf /usr/local/go/bin/go /usr/local/bin/go && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/golang",
 	},
 	{
 		Name:        "java",
 		Category:    "runtime",
 		Description: "Java (Eclipse Temurin) JDK",
 		SourceImage: "public.ecr.aws/docker/library/eclipse-temurin",
-		DefaultTag:  "21",
+		DefaultTag:  "26",
 		TagSuffix:   "-jdk",
 		Instructions: []string{
 			"COPY --from=%s /opt/java/openjdk /opt/java/openjdk",
@@ -111,13 +131,15 @@ var builtinCatalog = []Tool{
 		EnvVars: map[string]string{
 			"JAVA_HOME": "/opt/java/openjdk",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/eclipse-temurin",
 	},
 	{
 		Name:        "nodejs",
 		Category:    "runtime",
 		Description: "Node.js",
 		SourceImage: "public.ecr.aws/docker/library/node",
-		DefaultTag:  "24",
+		DefaultTag:  "26",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/node /usr/local/bin/node",
@@ -125,26 +147,30 @@ var builtinCatalog = []Tool{
 			`RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \` + "\n" +
 				`  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx`,
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/node",
 	},
 	{
 		Name:        "php",
 		Category:    "runtime",
 		Description: "PHP",
 		SourceImage: "public.ecr.aws/docker/library/php",
-		DefaultTag:  "8.4",
+		DefaultTag:  "8.5",
 		TagSuffix:   "-cli",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/php* /usr/local/bin/",
 			"COPY --from=%s /usr/local/lib/php /usr/local/lib/php",
 			"COPY --from=%s /usr/local/etc/php /usr/local/etc/php",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/php",
 	},
 	{
 		Name:        "python",
 		Category:    "runtime",
 		Description: "Python",
 		SourceImage: "public.ecr.aws/docker/library/python",
-		DefaultTag:  "3.13",
+		DefaultTag:  "3.14",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/python{{.Version}} /usr/local/lib/python{{.Version}}",
@@ -152,13 +178,15 @@ var builtinCatalog = []Tool{
 			"COPY --from=%s /usr/local/bin/pip* /usr/local/bin/",
 			"RUN ln -sf /usr/local/bin/python3 /usr/local/bin/python",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/python",
 	},
 	{
 		Name:        "ruby",
 		Category:    "runtime",
 		Description: "Ruby",
 		SourceImage: "public.ecr.aws/docker/library/ruby",
-		DefaultTag:  "3.3",
+		DefaultTag:  "4.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/ruby /usr/local/lib/ruby",
@@ -168,13 +196,15 @@ var builtinCatalog = []Tool{
 			"COPY --from=%s /usr/local/bin/irb /usr/local/bin/irb",
 			"COPY --from=%s /usr/local/include/ruby* /usr/local/include/",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/ruby",
 	},
 	{
 		Name:        "rust",
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "public.ecr.aws/docker/library/rust",
-		DefaultTag:  "1.94.1",
+		DefaultTag:  "1.96.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -185,6 +215,8 @@ var builtinCatalog = []Tool{
 			"RUSTUP_HOME": "/usr/local/rustup",
 			"CARGO_HOME":  "/usr/local/cargo",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/rust",
 	},
 
 	// ── package-manager ───────────────────────────────────────────────────
@@ -193,11 +225,13 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "public.ecr.aws/docker/library/composer",
-		DefaultTag:   "2.9.5",
+		DefaultTag:   "2.10.1",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "library/composer",
 	},
 	{
 		Name:         "gradle",
@@ -231,51 +265,61 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.68.1",
+		DefaultTag:  "0.71.1",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "prefix-dev/pixi",
 	},
 	{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "10.33.0",
+		DefaultTag:   "11.9.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "pnpm",
 	},
 	{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.0",
+		DefaultTag:   "1.5.13",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "skills",
 	},
 	{
 		Name:        "uv",
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.6",
+		DefaultTag:  "0.11.25",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "astral-sh/uv",
 	},
 	{
 		Name:         "yarn",
 		Category:     "package-manager",
 		Description:  "Yarn package manager",
-		DefaultTag:   "1.22.22",
+		DefaultTag:   "2.4.3",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g yarn@{{.Tag}}",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "yarn",
 	},
 
 	// ── cloud ─────────────────────────────────────────────────────────────
@@ -298,6 +342,8 @@ var builtinCatalog = []Tool{
 			"COPY --from=%s /usr/local/aws-cli /usr/local/aws-cli",
 			"RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws",
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "aws/aws-cli",
 	},
 	{
 		Name:        "azure-cli",
@@ -323,50 +369,59 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm 4 package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.1.4/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.2/scripts/get-helm-4 | bash",
 		},
 	},
 	{
 		Name:        "kubectl",
 		Category:    "cloud",
 		Description: "Kubernetes CLI",
-		DefaultTag:  "1.35.3",
+		DefaultTag:  "1.36.2",
 		Instructions: []string{
 			`RUN curl -fsSL "https://dl.k8s.io/release/v{{.Tag}}/bin/linux/$(dpkg --print-architecture)/kubectl" -o /usr/local/bin/kubectl \` + "\n" +
 				`  && chmod +x /usr/local/bin/kubectl`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "kubernetes/kubernetes",
 	},
 	{
 		Name:        "terraform",
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.4.7",
+		DefaultTag:  "1.15.7",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "hashicorp/terraform",
 	},
 	{
 		Name:        "terraform-docs",
 		Category:    "cloud",
 		Description: "terraform-docs documentation generator",
 		SourceImage: "quay.io/terraform-docs/terraform-docs",
-		DefaultTag:  "0.22.0-arm64", // TODO: Remove arch when upstream fixes their builds
+		DefaultTag:  "0.24.0",
+		TagSuffix:   "-arm64", // TODO: Remove arch when upstream fixes their builds
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/terraform-docs /usr/local/bin/terraform-docs",
 		},
+		UpdateSource: UpdateQuay,
+		UpdateRef:    "terraform-docs/terraform-docs",
 	},
 	{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.61.0",
+		DefaultTag:   "0.63.1",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
 				`  && unzip -o /tmp/tflint.zip -d /usr/local/bin \` + "\n" +
 				`  && rm /tmp/tflint.zip`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "terraform-linters/tflint",
 	},
 
 	// ── database ──────────────────────────────────────────────────────────
@@ -408,18 +463,20 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.160.1",
+		DefaultTag:   "0.163.3",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin hugo`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "gohugoio/hugo",
 	},
 	{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.60.0",
+		DefaultTag:   "1.61.1",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -431,18 +488,22 @@ var builtinCatalog = []Tool{
 		EnvVars: map[string]string{
 			"PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "playwright",
 	},
 	{
 		Name:         "playwright-cli",
 		Category:     "testing",
 		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
-		DefaultTag:   "0.1.13",
+		DefaultTag:   "0.1.14",
 		Dependencies: []string{"playwright"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
 				`    | tar xz -C /usr/local/lib/node_modules --transform 's|^package|@playwright/cli|' \` + "\n" +
 				`  && ln -s /usr/local/lib/node_modules/@playwright/cli/playwright-cli.js /usr/local/bin/playwright-cli`,
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "@playwright/cli",
 	},
 
 	// ── utils ─────────────────────────────────────────────────────────────
@@ -471,7 +532,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.89.0",
+		DefaultTag:  "2.95.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -479,6 +540,8 @@ var builtinCatalog = []Tool{
 		EnvVars: map[string]string{
 			"GH_TELEMETRY": "false",
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "cli/cli",
 	},
 	{
 		Name:        "imagemagick",
@@ -497,6 +560,8 @@ var builtinCatalog = []Tool{
 		Instructions: []string{
 			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "@schpet/linear-cli",
 	},
 	{
 		Name:        "lychee",
@@ -509,6 +574,8 @@ var builtinCatalog = []Tool{
 				`  && curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/lychee-v{{.Tag}}/lychee-${ARCH}-unknown-linux-gnu.tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin lychee`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "lycheeverse/lychee",
 	},
 	{
 		Name:        "make",
@@ -527,16 +594,20 @@ var builtinCatalog = []Tool{
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/op /usr/local/bin/op",
 		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "1password/op",
 	},
 	{
 		Name:        "pinact",
 		Category:    "utils",
 		Description: "Pin GitHub Actions versions",
-		DefaultTag:  "3.9.0",
+		DefaultTag:  "4.1.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin pinact`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "suzuki-shunsuke/pinact",
 	},
 	{
 		Name:         "readwise",
@@ -547,18 +618,22 @@ var builtinCatalog = []Tool{
 		Instructions: []string{
 			"RUN npm install -g readwise-reader-cli@{{.Tag}}",
 		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "readwise-reader-cli",
 	},
 	{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.1.71",
+		DefaultTag:  "0.2.24",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
 				`  && curl -fsSL "https://github.com/rvben/rumdl/releases/download/v{{.Tag}}/rumdl-v{{.Tag}}-${ARCH}-unknown-linux-gnu.tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin rumdl`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "rvben/rumdl",
 	},
 	{
 		Name:        "ssh",
@@ -598,12 +673,14 @@ var builtinCatalog = []Tool{
 		Instructions: []string{
 			"RUN pip install --no-cache-dir youtube-transcript-api=={{.Tag}}",
 		},
+		UpdateSource: UpdatePyPI,
+		UpdateRef:    "youtube-transcript-api",
 	},
 	{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.03.17",
+		DefaultTag:   "2026.06.09",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
@@ -613,16 +690,20 @@ var builtinCatalog = []Tool{
 				`  && chmod +x /usr/local/bin/yt-dlp \` + "\n" +
 				`  && rm /tmp/SHA2-256SUMS`,
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "yt-dlp/yt-dlp",
 	},
 	{
 		Name:        "zizmor",
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.23.1",
+		DefaultTag:  "1.26.1",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "zizmorcore/zizmor",
 	},
 }
 
@@ -942,6 +1023,20 @@ func VersionPinnable() []Tool {
 		}
 	}
 	return pinnable
+}
+
+// AutoUpdatable returns built-in tools that have an UpdateSource declared,
+// meaning their version can be checked and bumped automatically.
+// It always operates on builtinCatalog (never the effective catalog) so that
+// a developer's local custom-tools.json cannot influence automated updates.
+func AutoUpdatable() []Tool {
+	var out []Tool
+	for _, t := range builtinCatalog {
+		if t.UpdateSource != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // ToolSelection represents a user's tool choice, optionally with a version override.

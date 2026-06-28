@@ -115,8 +115,8 @@ func TestResolveSimple(t *testing.T) {
 	if resolved[0].Name != "python" {
 		t.Errorf("expected python, got %q", resolved[0].Name)
 	}
-	if resolved[0].Tag != "3.13-slim" {
-		t.Errorf("expected tag 3.13-slim, got %q", resolved[0].Tag)
+	if resolved[0].Tag != "3.14-slim" {
+		t.Errorf("expected tag 3.14-slim, got %q", resolved[0].Tag)
 	}
 }
 
@@ -158,16 +158,16 @@ func TestResolveVersionOverrideNoSuffix(t *testing.T) {
 
 func TestDefaultVersion(t *testing.T) {
 	python, _ := Get("python")
-	if python.DefaultVersion() != "3.13" {
-		t.Errorf("expected 3.13, got %q", python.DefaultVersion())
+	if python.DefaultVersion() != "3.14" {
+		t.Errorf("expected 3.14, got %q", python.DefaultVersion())
 	}
 	golang, _ := Get("golang")
 	if golang.DefaultVersion() != "1.26" {
 		t.Errorf("expected 1.26, got %q", golang.DefaultVersion())
 	}
 	java, _ := Get("java")
-	if java.DefaultVersion() != "21" {
-		t.Errorf("expected 21, got %q", java.DefaultVersion())
+	if java.DefaultVersion() != "26" {
+		t.Errorf("expected 26, got %q", java.DefaultVersion())
 	}
 }
 
@@ -236,9 +236,9 @@ func TestResolveUnknownTool(t *testing.T) {
 func TestResolvedToolImageRef(t *testing.T) {
 	rt := ResolvedTool{
 		Tool: Tool{SourceImage: "public.ecr.aws/docker/library/python"},
-		Tag:  "3.13-slim",
+		Tag:  "3.14-slim",
 	}
-	expected := "public.ecr.aws/docker/library/python:3.13-slim"
+	expected := "public.ecr.aws/docker/library/python:3.14-slim"
 	if got := rt.ImageRef(); got != expected {
 		t.Errorf("ImageRef() = %q, want %q", got, expected)
 	}
@@ -274,8 +274,8 @@ func TestRenderInstructionsTemplateVersion(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	rt := resolved[0]
-	if rt.Tag != "3.13-slim" {
-		t.Fatalf("expected python tag 3.13-slim, got %q", rt.Tag)
+	if rt.Tag != "3.14-slim" {
+		t.Fatalf("expected python tag 3.14-slim, got %q", rt.Tag)
 	}
 	var libLine string
 	for _, line := range rt.DockerLines {
@@ -287,11 +287,11 @@ func TestRenderInstructionsTemplateVersion(t *testing.T) {
 	if libLine == "" {
 		t.Fatal("expected a COPY line referencing /usr/local/lib/python")
 	}
-	if !strings.Contains(libLine, "/usr/local/lib/python3.13 /usr/local/lib/python3.13") {
-		t.Errorf("expected {{.Version}} to expand to 3.13, got: %s", libLine)
+	if !strings.Contains(libLine, "/usr/local/lib/python3.14 /usr/local/lib/python3.14") {
+		t.Errorf("expected {{.Version}} to expand to 3.14, got: %s", libLine)
 	}
-	if !strings.Contains(libLine, "public.ecr.aws/docker/library/python:3.13-slim") {
-		t.Errorf("expected COPY --from to reference python:3.13-slim, got: %s", libLine)
+	if !strings.Contains(libLine, "public.ecr.aws/docker/library/python:3.14-slim") {
+		t.Errorf("expected COPY --from to reference python:3.14-slim, got: %s", libLine)
 	}
 }
 

@@ -1,4 +1,4 @@
-name: Update Agents
+name: Updates
 
 # Daily check for new releases of the npm-based agents pinned in
 # internal/agent/agent.go. Opens one combined PR for minor/patch bumps and a
@@ -16,7 +16,7 @@ on:
 permissions: {}
 
 jobs:
-  update:
+  update-agents:
     name: Check npm for agent updates
     runs-on: ubuntu-24.04
     environment: agent-updates
@@ -221,3 +221,86 @@ jobs:
 
             commit_and_upsert_pr "$branch" "$title" "$body"
           done < <(awk -F'\t' '$5=="major"' "$updates_file")
+
+  update-tools:
+    name: Check upstreams for tool updates
+    runs-on: ubuntu-24.04
+    environment: agent-updates
+    permissions: {}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Find updates and open PRs
+        env:
+          GH_TOKEN: ${{ secrets.UPDATE_AGENTS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.UPDATE_AGENTS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          AUTH_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          git fetch "$AUTH_REMOTE" main:refs/remotes/origin/main
+
+          PLAN=$(go run ./internal/updater -json)
+          COUNT=$(jq 'length' <<<"$PLAN")
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No tool updates to apply."
+            exit 0
+          fi
+          echo "Found $COUNT tool update(s)."
+
+          minor_names=$(jq -r '[.[]|select(.bump!="major")|.name]|join(",")' <<<"$PLAN")
+          major_names=$(jq -r '.[]|select(.bump=="major")|.name' <<<"$PLAN")
+
+          upsert_pr() {
+            local branch="$1" title="$2" body="$3"
+            git push --force "$AUTH_REMOTE" "$branch":"$branch"
+            local n
+            n=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$n" ]; then
+              gh pr edit "$n" --title "$2" --body "$3"
+              echo "refreshed PR #$n on $branch"
+            else
+              gh pr create --base main --head "$branch" --title "$2" --body "$3"
+            fi
+          }
+
+          if [ -n "$minor_names" ]; then
+            git checkout -f -B automated/tool-updates-minor origin/main
+            go run ./internal/updater -write -only="$minor_names"
+            body=$(jq -r '[.[]|select(.bump!="major")|"- **(.name)**: `(.old_tag)` → `(.new_tag)` ((.bump))"]|join("
+")' <<<"$PLAN")
+            body="## Tool updates"$'
+
+'"${body}"
+            minor_titles=$(jq -r '[.[]|select(.bump!="major")|.name]|join(", ")' <<<"$PLAN")
+            upsert_pr automated/tool-updates-minor "Update tools: ${minor_titles}" "$body"
+          fi
+
+          while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            git checkout -f -B "automated/tool-update-major-$t" origin/main
+            go run ./internal/updater -write -only="$t"
+            body=$(jq -r --arg n "$t" '.[]|select(.name==$n)|"- **(.name)**: `(.old_tag)` → `(.new_tag)` (major)
+
+> ⚠️ Major bump — review upstream release notes."' <<<"$PLAN")
+            body="## Tool updates"$'
+
+'"${body}"
+            upsert_pr "automated/tool-update-major-$t" "Update tools: $t (major)" "$body"
+          done <<<"$major_names"
