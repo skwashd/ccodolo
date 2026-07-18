@@ -414,7 +414,7 @@ var builtinCatalog = []Tool{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.63.1",
+		DefaultTag:   "0.64.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
