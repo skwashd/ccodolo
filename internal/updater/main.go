@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -188,36 +189,44 @@ func buildTargets(root string) []updateTarget {
 	}
 
 	// Extra target: helm (no DefaultTag, URL rewrite in tool.go).
-	targets = append(targets, updateTarget{
-		name:              "helm",
-		src:               tool.UpdateGitHub,
-		ref:               "helm/helm",
-		currentDefaultTag: "4.1.4",
-		tagSuffix:         "",
-		filesFunc:         func(r string) []string { return []string{filepath.Join(r, toolGoPath)} },
-		rewriteFunc: func(r, oldTag, newTag string) error {
-			path := filepath.Join(r, toolGoPath)
-			return rewriteFile(path, func(src []byte) ([]byte, error) {
-				return RewriteHelmURL(src, oldTag, newTag)
-			})
-		},
-	})
+	if helmVer := helmCurrentVersion(root); helmVer != "" {
+		targets = append(targets, updateTarget{
+			name:              "helm",
+			src:               tool.UpdateGitHub,
+			ref:               "helm/helm",
+			currentDefaultTag: helmVer,
+			tagSuffix:         "",
+			filesFunc:         func(r string) []string { return []string{filepath.Join(r, toolGoPath)} },
+			rewriteFunc: func(r, oldTag, newTag string) error {
+				path := filepath.Join(r, toolGoPath)
+				return rewriteFile(path, func(src []byte) ([]byte, error) {
+					return RewriteHelmURL(src, oldTag, newTag)
+				})
+			},
+		})
+	} else {
+		fmt.Fprintf(os.Stderr, "::warning::helm: could not extract current version from %s — skipping\n", toolGoPath)
+	}
 
 	// Extra target: zsh-in-docker (ARG in Dockerfile.tmpl).
-	targets = append(targets, updateTarget{
-		name:              "zsh-in-docker",
-		src:               tool.UpdateGitHub,
-		ref:               "deluan/zsh-in-docker",
-		currentDefaultTag: "1.2.1",
-		tagSuffix:         "",
-		filesFunc:         func(r string) []string { return []string{filepath.Join(r, dockerfilePath)} },
-		rewriteFunc: func(r, oldTag, newTag string) error {
-			path := filepath.Join(r, dockerfilePath)
-			return rewriteFile(path, func(src []byte) ([]byte, error) {
-				return RewriteDockerfileArg(src, "ZSH_IN_DOCKER_VERSION", oldTag, newTag)
-			})
-		},
-	})
+	if zshVer := zshInDockerCurrentVersion(root); zshVer != "" {
+		targets = append(targets, updateTarget{
+			name:              "zsh-in-docker",
+			src:               tool.UpdateGitHub,
+			ref:               "deluan/zsh-in-docker",
+			currentDefaultTag: zshVer,
+			tagSuffix:         "",
+			filesFunc:         func(r string) []string { return []string{filepath.Join(r, dockerfilePath)} },
+			rewriteFunc: func(r, oldTag, newTag string) error {
+				path := filepath.Join(r, dockerfilePath)
+				return rewriteFile(path, func(src []byte) ([]byte, error) {
+					return RewriteDockerfileArg(src, "ZSH_IN_DOCKER_VERSION", oldTag, newTag)
+				})
+			},
+		})
+	} else {
+		fmt.Fprintf(os.Stderr, "::warning::zsh-in-docker: could not extract current version from %s — skipping\n", dockerfilePath)
+	}
 
 	return targets
 }
@@ -271,4 +280,32 @@ func findTarget(root string, name string) *updateTarget {
 		}
 	}
 	return nil
+}
+
+// helmCurrentVersion reads the pinned helm version from the install URL in tool.go.
+// Returns "" if the version cannot be extracted (e.g. the URL format changed).
+func helmCurrentVersion(root string) string {
+	src, err := os.ReadFile(filepath.Join(root, toolGoPath))
+	if err != nil {
+		return ""
+	}
+	m := regexp.MustCompile(`helm/refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)/`).FindSubmatch(src)
+	if m == nil {
+		return ""
+	}
+	return string(m[1])
+}
+
+// zshInDockerCurrentVersion reads the pinned version from the ARG line in Dockerfile.tmpl.
+// Returns "" if the version cannot be extracted (e.g. the ARG format changed).
+func zshInDockerCurrentVersion(root string) string {
+	src, err := os.ReadFile(filepath.Join(root, dockerfilePath))
+	if err != nil {
+		return ""
+	}
+	m := regexp.MustCompile(`ARG ZSH_IN_DOCKER_VERSION=([0-9]+\.[0-9]+\.[0-9]+)`).FindSubmatch(src)
+	if m == nil {
+		return ""
+	}
+	return string(m[1])
 }
