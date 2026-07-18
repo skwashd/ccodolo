@@ -370,7 +370,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm 4 package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.2/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.3/scripts/get-helm-4 | bash",
 		},
 	},
 	{
