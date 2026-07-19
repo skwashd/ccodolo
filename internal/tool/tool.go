@@ -83,7 +83,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Deno runtime",
 		SourceImage: "denoland/deno",
-		DefaultTag:  "2.9.0",
+		DefaultTag:  "2.9.3",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/deno /usr/local/bin/deno",
 		},
@@ -205,7 +205,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "public.ecr.aws/docker/library/rust",
-		DefaultTag:  "1.96.0",
+		DefaultTag:  "1.97.1",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -226,7 +226,7 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "public.ecr.aws/docker/library/composer",
-		DefaultTag:   "2.10.1",
+		DefaultTag:   "2.10.2",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
@@ -266,7 +266,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.71.1",
+		DefaultTag:  "0.73.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "11.9.0",
+		DefaultTag:   "11.13.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -290,7 +290,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.13",
+		DefaultTag:   "1.5.19",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -303,7 +303,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.25",
+		DefaultTag:  "0.11.29",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -370,7 +370,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm 4 package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.2/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.3/scripts/get-helm-4 | bash",
 		},
 	},
 	{
@@ -390,7 +390,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.15.7",
+		DefaultTag:  "1.15.8",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -414,7 +414,7 @@ var builtinCatalog = []Tool{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.63.1",
+		DefaultTag:   "0.64.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
@@ -464,7 +464,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.163.3",
+		DefaultTag:   "0.164.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -496,7 +496,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright-cli",
 		Category:     "testing",
 		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
-		DefaultTag:   "0.1.14",
+		DefaultTag:   "0.1.17",
 		Dependencies: []string{"playwright"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
@@ -533,7 +533,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.95.0",
+		DefaultTag:  "2.96.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -626,7 +626,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.24",
+		DefaultTag:  "0.2.34",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -681,7 +681,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.06.09",
+		DefaultTag:   "2026.07.04",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
@@ -699,7 +699,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.26.1",
+		DefaultTag:  "1.27.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
