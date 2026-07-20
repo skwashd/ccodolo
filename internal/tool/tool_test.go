@@ -458,3 +458,119 @@ func TestResolvePlaywrightDependsOnNodejs(t *testing.T) {
 		}
 	}
 }
+
+func TestGetLighthouse(t *testing.T) {
+	lh, err := Get("lighthouse")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lh.Category != "testing" {
+		t.Errorf("expected category 'testing', got %q", lh.Category)
+	}
+
+	chromium, err := Get("chromium")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if chromium.EnvVars["CHROME_PATH"] != "/usr/bin/chromium" {
+		t.Errorf("expected chromium CHROME_PATH=/usr/bin/chromium, got %q", chromium.EnvVars["CHROME_PATH"])
+	}
+}
+
+func TestResolveLighthouseDependsOnNodejsAndChromium(t *testing.T) {
+	sels := []ToolSelection{{Name: "lighthouse"}}
+	resolved, err := Resolve(sels)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var names []string
+	for i, rt := range resolved {
+		names = append(names, rt.Name)
+		if rt.Name == "lighthouse" {
+			for _, dep := range []string{"nodejs", "chromium"} {
+				depIdx := -1
+				for j, n := range names {
+					if n == dep {
+						depIdx = j
+						break
+					}
+				}
+				if depIdx == -1 || depIdx >= i {
+					t.Errorf("expected %q to be resolved before lighthouse", dep)
+				}
+			}
+		}
+	}
+
+	dependencyFound := map[string]bool{}
+	for _, n := range names {
+		dependencyFound[n] = true
+	}
+	if !dependencyFound["nodejs"] {
+		t.Error("lighthouse should auto-include nodejs as dependency")
+	}
+	if !dependencyFound["chromium"] {
+		t.Error("lighthouse should auto-include chromium as dependency")
+	}
+
+	// Should render an npm install line pinned to the default tag.
+	var lighthouseLine string
+	for _, rt := range resolved {
+		if rt.Name != "lighthouse" {
+			continue
+		}
+		for _, line := range rt.DockerLines {
+			if strings.Contains(line, "lighthouse@") {
+				lighthouseLine = line
+			}
+		}
+	}
+	if lighthouseLine == "" {
+		t.Fatal("expected a RUN line installing lighthouse@<tag>")
+	}
+	lighthouse, _ := Get("lighthouse")
+	want := "lighthouse@" + lighthouse.DefaultTag
+	if !strings.Contains(lighthouseLine, want) {
+		t.Errorf("expected %q in lighthouse install line, got: %s", want, lighthouseLine)
+	}
+}
+
+func TestResolveLighthouseWrapsChromeFlags(t *testing.T) {
+	resolved, err := Resolve([]ToolSelection{{Name: "lighthouse"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var joined string
+	for _, rt := range resolved {
+		if rt.Name != "lighthouse" {
+			continue
+		}
+		joined = strings.Join(rt.DockerLines, "\n")
+	}
+
+	for _, want := range []string{
+		"mv /usr/local/bin/lighthouse /usr/local/bin/lighthouse-bin",
+		"--no-sandbox",
+		"--disable-dev-shm-usage",
+		"lighthouse-bin",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected lighthouse Docker lines to contain %q, got: %s", want, joined)
+		}
+	}
+
+	// Regression: mkdir (as root) creates /home/coder/.config as a side
+	// effect, since it doesn't exist yet at this point in the build. The
+	// chown must cover the whole .config dir, not just configstore/ — else
+	// the parent stays root-owned and silently blocks `coder` from creating
+	// any other directory under ~/.config later (this broke Chrome launching
+	// entirely: "Unable to connect to Chrome").
+	if strings.Contains(joined, "chown -R coder:coder /home/coder/.config/configstore") {
+		t.Error("chown must target /home/coder/.config (the whole dir), not just the configstore/ subdir")
+	}
+	if !strings.Contains(joined, "chown -R coder:coder /home/coder/.config") {
+		t.Error("expected a chown of /home/coder/.config to coder:coder")
+	}
+}

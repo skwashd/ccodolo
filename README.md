@@ -225,6 +225,8 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `sqlite` | Database | SQLite database engine |
 | `playwright` | Testing | Playwright browser testing CLI |
 | `hugo` | Testing | Hugo static site generator (extended) |
+| `chromium` | Testing | Chromium browser (headless-capable, for browser automation/testing) |
+| `lighthouse` | Testing | Google Lighthouse web page auditing CLI (Chrome flags defaulted for containers at build) |
 | `ffmpeg` | Utilities | FFmpeg audio/video toolkit |
 | `gh` | Utilities | GitHub CLI |
 | `zizmor` | Utilities | GitHub Actions workflow security analyzer |
@@ -233,6 +235,7 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `wget` | Utilities | GNU Wget |
 | `youtube-transcript-api` | Utilities | Python library/CLI to fetch YouTube transcripts |
 | `yt-dlp` | Utilities | yt-dlp video downloader (verifies SHA2-256SUMS at build) |
+
 
 ### Tool dependencies
 
@@ -246,6 +249,7 @@ These tools automatically install their dependencies:
 - `skills` installs `nodejs`
 - `aws-cdk` installs `nodejs`
 - `playwright` installs `nodejs`
+- `lighthouse` installs `nodejs` and `chromium`
 - `hugo` installs `golang`
 - `youtube-transcript-api` installs `python`
 - `yt-dlp` installs `python`

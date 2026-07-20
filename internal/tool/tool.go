@@ -506,6 +506,48 @@ var builtinCatalog = []Tool{
 		UpdateSource: UpdateNPM,
 		UpdateRef:    "@playwright/cli",
 	},
+	{
+		Name:        "chromium",
+		Category:    "testing",
+		Description: "Chromium browser (headless-capable, for browser automation/testing)",
+		Instructions: []string{
+			"RUN apt update && apt install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*",
+		},
+		EnvVars: map[string]string{
+			"CHROME_PATH": "/usr/bin/chromium",
+		},
+	},
+	{
+		Name:         "lighthouse",
+		Category:     "testing",
+		Description:  "Google Lighthouse web page auditing CLI",
+		DefaultTag:   "13.4.0",
+		Dependencies: []string{"nodejs", "chromium"},
+		Instructions: []string{
+			// Pre-seed the first-run error-reporting preference so `coder` is
+			// never prompted.
+			//
+			// Also wrap the real binary so Chrome launches successfully by
+			// default: chrome-launcher never adds --no-sandbox itself, and
+			// this container gets no extra capabilities (by design), so
+			// Chrome's own sandbox can't initialize and the CLI fails with
+			// "Unable to connect to Chrome". The default 64MB /dev/shm is
+			// also too small for headless rendering. The wrapper only
+			// injects defaults when the caller hasn't already set
+			// --chrome-flags themselves.
+			`RUN npm install -g lighthouse@{{.Tag}} \` + "\n" +
+				`  && mv /usr/local/bin/lighthouse /usr/local/bin/lighthouse-bin \` + "\n" +
+				`  && printf '#!/bin/sh\nfor a in "$@"; do\n  case "$a" in\n    --chrome-flags|--chrome-flags=*) exec lighthouse-bin "$@" ;;\n  esac\ndone\nexec lighthouse-bin --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" "$@"\n' > /usr/local/bin/lighthouse \` + "\n" +
+				`  && chmod +x /usr/local/bin/lighthouse \` + "\n" +
+				`  && mkdir -p /home/coder/.config/configstore \` + "\n" +
+				`  && printf '{"isErrorReportingEnabled":false}' > /home/coder/.config/configstore/lighthouse.json \` + "\n" +
+				`  && chmod 700 /home/coder/.config/configstore \` + "\n" +
+				`  && chmod 600 /home/coder/.config/configstore/lighthouse.json \` + "\n" +
+				`  && chown -R coder:coder /home/coder/.config`,
+		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "lighthouse",
+	},
 
 	// ── utils ─────────────────────────────────────────────────────────────
 	{
