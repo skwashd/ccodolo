@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "11.15.0",
+		DefaultTag:   "11.15.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -303,7 +303,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.29",
+		DefaultTag:  "0.11.30",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -521,7 +521,7 @@ var builtinCatalog = []Tool{
 		Name:         "lighthouse",
 		Category:     "testing",
 		Description:  "Google Lighthouse web page auditing CLI",
-		DefaultTag:   "13.4.0",
+		DefaultTag:   "13.4.1",
 		Dependencies: []string{"nodejs", "chromium"},
 		Instructions: []string{
 			// Pre-seed the first-run error-reporting preference so `coder` is
@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.35",
+		DefaultTag:  "0.2.39",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
