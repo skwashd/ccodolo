@@ -598,7 +598,7 @@ var builtinCatalog = []Tool{
 		Name:         "linear-cli",
 		Category:     "utils",
 		Description:  "Linear CLI (unofficial)",
-		DefaultTag:   "2.0.0",
+		DefaultTag:   "2.3.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
