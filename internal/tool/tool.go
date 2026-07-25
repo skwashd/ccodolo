@@ -83,7 +83,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Deno runtime",
 		SourceImage: "denoland/deno",
-		DefaultTag:  "2.9.3",
+		DefaultTag:  "2.9.4",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/deno /usr/local/bin/deno",
 		},
@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "11.15.1",
+		DefaultTag:   "11.17.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -290,7 +290,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.19",
+		DefaultTag:   "1.5.20",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -303,7 +303,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.30",
+		DefaultTag:  "0.11.31",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -377,7 +377,7 @@ var builtinCatalog = []Tool{
 		Name:        "kubectl",
 		Category:    "cloud",
 		Description: "Kubernetes CLI",
-		DefaultTag:  "1.36.2",
+		DefaultTag:  "1.36.3",
 		Instructions: []string{
 			`RUN curl -fsSL "https://dl.k8s.io/release/v{{.Tag}}/bin/linux/$(dpkg --print-architecture)/kubectl" -o /usr/local/bin/kubectl \` + "\n" +
 				`  && chmod +x /usr/local/bin/kubectl`,
@@ -598,7 +598,7 @@ var builtinCatalog = []Tool{
 		Name:         "linear-cli",
 		Category:     "utils",
 		Description:  "Linear CLI (unofficial)",
-		DefaultTag:   "2.0.0",
+		DefaultTag:   "2.3.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.39",
+		DefaultTag:  "0.2.41",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -741,7 +741,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.27.0",
+		DefaultTag:  "1.28.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
