@@ -303,7 +303,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.31",
+		DefaultTag:  "0.11.32",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -477,7 +477,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.61.1",
+		DefaultTag:   "1.62.0",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.41",
+		DefaultTag:  "0.2.43",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
