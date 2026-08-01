@@ -78,14 +78,14 @@ var registry = map[Agent]Meta{
 	Codex: {
 		Name:       Codex,
 		ConfigDir:  ".codex",
-		InstallCmd: `RUN npm install -g @openai/codex@v0.145.0`,
+		InstallCmd: `RUN npm install -g @openai/codex@v0.146.0`,
 		Entrypoint: []string{"codex", "--dangerously-bypass-approvals-and-sandbox"},
 		DependsOn:  []string{"nodejs"},
 	},
 	Copilot: {
 		Name:       Copilot,
 		ConfigDir:  ".copilot",
-		InstallCmd: `RUN npm install -g @github/copilot@v1.0.75`,
+		InstallCmd: `RUN npm install -g @github/copilot@v1.0.77`,
 		Entrypoint: []string{"copilot", "--allow-all"},
 		DependsOn:  []string{"nodejs"},
 	},
@@ -99,7 +99,7 @@ var registry = map[Agent]Meta{
 	OpenCode: {
 		Name:       OpenCode,
 		ConfigDir:  ".opencode",
-		InstallCmd: `RUN npm install -g opencode-ai@v1.18.5`,
+		InstallCmd: `RUN npm install -g opencode-ai@v1.18.10`,
 		Entrypoint: []string{"opencode", "--yolo"},
 		DependsOn:  []string{"nodejs"},
 	},
