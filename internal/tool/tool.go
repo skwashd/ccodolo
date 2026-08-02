@@ -266,7 +266,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.73.0",
+		DefaultTag:  "0.75.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "11.17.0",
+		DefaultTag:   "11.19.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -290,7 +290,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.20",
+		DefaultTag:   "1.5.21",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -303,7 +303,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.11.32",
+		DefaultTag:  "0.12.1",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -477,7 +477,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.62.0",
+		DefaultTag:   "1.62.1",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -575,7 +575,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.96.0",
+		DefaultTag:  "2.97.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -644,7 +644,7 @@ var builtinCatalog = []Tool{
 		Name:        "pinact",
 		Category:    "utils",
 		Description: "Pin GitHub Actions versions",
-		DefaultTag:  "4.1.0",
+		DefaultTag:  "4.1.1",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin pinact`,
@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.43",
+		DefaultTag:  "0.2.47",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
