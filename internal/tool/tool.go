@@ -355,6 +355,18 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "cloudflare-cli",
+		Category:     "cloud",
+		Description:  "Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more",
+		DefaultTag:   "0.6.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g cf@{{.Tag}}",
+		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "cf",
+	},
+	{
 		Name:        "gcloud",
 		Category:    "cloud",
 		Description: "Google Cloud CLI",

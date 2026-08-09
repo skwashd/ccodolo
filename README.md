@@ -217,6 +217,7 @@ Tools are installed via multi-stage `COPY --from` for fast, reproducible builds.
 | `aws-cdk` | Cloud | AWS CDK |
 | `gcloud` | Cloud | Google Cloud CLI |
 | `azure-cli` | Cloud | Azure CLI |
+| `cloudflare-cli` | Cloud | Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more |
 | `kubectl` | Cloud | Kubernetes CLI |
 | `helm` | Cloud | Helm package manager for Kubernetes |
 | `mysql-client` | Database | MySQL/MariaDB client |
@@ -248,6 +249,7 @@ These tools automatically install their dependencies:
 - `pnpm` installs `nodejs`
 - `skills` installs `nodejs`
 - `aws-cdk` installs `nodejs`
+- `cloudflare-cli` installs `nodejs`
 - `playwright` installs `nodejs`
 - `lighthouse` installs `nodejs` and `chromium`
 - `hugo` installs `golang`
