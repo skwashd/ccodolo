@@ -586,6 +586,26 @@ See `template.example/` in this repository for example templates including a Cla
 
 **Note**: User templates go in `~/.ccodolo/template/` (gitignored). The `template.example/` directory in the repo is for reference only.
 
+## Troubleshooting
+
+### Terminal size is wrong inside the container
+
+**Symptom**: the agent's UI is stuck at 80x24 instead of filling the window, and does not react when you resize. The keyboard still works.
+
+**Cause**: Docker sizes the container's pseudo-terminal from *its own stdout*, and only follows window resizes when that descriptor is a real terminal. If something between your shell and `ccodolo` replaces stdout with a pipe, Docker reads no size, the pty stays at the daemon default, and it never resizes.
+
+The usual culprit is the 1Password CLI. `op run` masks secrets by default, and to redact them it has to read the child's output — so it hands the child pipes for stdout and stderr. stdin stays a real terminal, which is why only the size is wrong.
+
+**Fix**: turn masking off, which leaves all three streams attached to the terminal:
+
+```bash
+op run --no-masking -- ccodolo --project myapp
+```
+
+The trade-off is that secrets printed inside the container are no longer redacted from your terminal scrollback. In practice masking buys little here: with a TTY, Docker merges the container's stdout and stderr into one raw stream of ANSI escapes and partial redraws, and `op`'s substring matching only catches a secret whose bytes happen to land contiguously in a single read. Keep masking enabled for non-interactive, line-oriented uses (`op run -- ./deploy.sh | tee build.log`), where it works reliably.
+
+Any other wrapper that pipes stdout — `ccodolo ... | tee`, some CI runners — causes the same symptom for the same reason.
+
 ## Migrating from the Shell Script
 
 If you previously used the shell script version of CCoDoLo:
