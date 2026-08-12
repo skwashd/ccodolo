@@ -85,7 +85,7 @@ var registry = map[Agent]Meta{
 	Copilot: {
 		Name:       Copilot,
 		ConfigDir:  ".copilot",
-		InstallCmd: `RUN npm install -g @github/copilot@v1.0.78`,
+		InstallCmd: `RUN npm install -g @github/copilot@v1.0.79`,
 		Entrypoint: []string{"copilot", "--allow-all"},
 		DependsOn:  []string{"nodejs"},
 	},
@@ -99,7 +99,7 @@ var registry = map[Agent]Meta{
 	OpenCode: {
 		Name:       OpenCode,
 		ConfigDir:  ".opencode",
-		InstallCmd: `RUN npm install -g opencode-ai@v1.18.15`,
+		InstallCmd: `RUN npm install -g opencode-ai@v1.18.16`,
 		Entrypoint: []string{"opencode", "--yolo"},
 		DependsOn:  []string{"nodejs"},
 	},
