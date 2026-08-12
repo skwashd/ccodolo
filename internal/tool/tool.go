@@ -266,7 +266,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.76.1",
+		DefaultTag:  "0.76.2",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "11.20.0",
+		DefaultTag:   "11.21.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -680,7 +680,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.52",
+		DefaultTag:  "0.2.53",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
