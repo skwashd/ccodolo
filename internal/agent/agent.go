@@ -71,7 +71,7 @@ var registry = map[Agent]Meta{
 		ConfigDir:  ".claude",
 		ExtraFiles: []string{".claude.json"},
 		ExtraDirs:  []string{".claude-plugin"},
-		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.226`,
+		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.228`,
 		Entrypoint: []string{"claude", "--dangerously-skip-permissions"},
 		DependsOn:  []string{"nodejs"},
 	},
