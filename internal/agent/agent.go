@@ -71,7 +71,7 @@ var registry = map[Agent]Meta{
 		ConfigDir:  ".claude",
 		ExtraFiles: []string{".claude.json"},
 		ExtraDirs:  []string{".claude-plugin"},
-		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.228`,
+		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.231`,
 		Entrypoint: []string{"claude", "--dangerously-skip-permissions"},
 		DependsOn:  []string{"nodejs"},
 	},
@@ -99,7 +99,7 @@ var registry = map[Agent]Meta{
 	OpenCode: {
 		Name:       OpenCode,
 		ConfigDir:  ".opencode",
-		InstallCmd: `RUN npm install -g opencode-ai@v1.18.16`,
+		InstallCmd: `RUN npm install -g opencode-ai@v1.18.18`,
 		Entrypoint: []string{"opencode", "--yolo"},
 		DependsOn:  []string{"nodejs"},
 	},
