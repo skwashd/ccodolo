@@ -382,7 +382,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm 4 package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.3/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.4/scripts/get-helm-4 | bash",
 		},
 	},
 	{
@@ -476,7 +476,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.164.0",
+		DefaultTag:   "0.165.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -610,7 +610,7 @@ var builtinCatalog = []Tool{
 		Name:         "linear-cli",
 		Category:     "utils",
 		Description:  "Linear CLI (unofficial)",
-		DefaultTag:   "2.4.0",
+		DefaultTag:   "2.5.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
@@ -680,7 +680,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.54",
+		DefaultTag:  "0.2.55",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
