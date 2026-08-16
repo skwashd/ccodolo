@@ -71,7 +71,7 @@ var registry = map[Agent]Meta{
 		ConfigDir:  ".claude",
 		ExtraFiles: []string{".claude.json"},
 		ExtraDirs:  []string{".claude-plugin"},
-		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.231`,
+		InstallCmd: `RUN npm install -g @anthropic-ai/claude-code@v2.1.233`,
 		Entrypoint: []string{"claude", "--dangerously-skip-permissions"},
 		DependsOn:  []string{"nodejs"},
 	},
@@ -85,7 +85,7 @@ var registry = map[Agent]Meta{
 	Copilot: {
 		Name:       Copilot,
 		ConfigDir:  ".copilot",
-		InstallCmd: `RUN npm install -g @github/copilot@v1.0.79`,
+		InstallCmd: `RUN npm install -g @github/copilot@v1.0.80`,
 		Entrypoint: []string{"copilot", "--allow-all"},
 		DependsOn:  []string{"nodejs"},
 	},
