@@ -735,7 +735,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.07.04",
+		DefaultTag:   "2026.08.19",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
