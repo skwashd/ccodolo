@@ -109,7 +109,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Go",
 		SourceImage: "public.ecr.aws/docker/library/golang",
-		DefaultTag:  "1.26",
+		DefaultTag:  "1.27",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/go /usr/local/go",
 			"RUN ln -sf /usr/local/go/bin/go /usr/local/bin/go && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt",
