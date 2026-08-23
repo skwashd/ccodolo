@@ -70,7 +70,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.3.14",
+		DefaultTag:  "1.4.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
