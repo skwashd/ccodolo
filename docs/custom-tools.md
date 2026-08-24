@@ -61,12 +61,14 @@ Tool entry fields (all snake_case in JSON):
 | `source_image` | no | Docker image to multi-stage `COPY --from`. Required if any instruction uses `%s`. |
 | `default_tag` | no | Tag for `source_image`, for example `3.13`. If `tag_suffix` is set, ccodolo appends the suffix automatically at render time — store the suffix-free version here. |
 | `tag_suffix` | no | Suffix appended to `default_tag` and to user-supplied versions when pinning, for example `-slim`. |
-| `instructions` | yes | List of Dockerfile lines (`RUN ...`, `COPY --from=%s ...`). Supports the placeholders documented in [Template Placeholders](#template-placeholders) below. |
+| `instructions` | yes, unless `startup_hook` is set | List of Dockerfile lines (`RUN ...`, `COPY --from=%s ...`). Supports the placeholders documented in [Template Placeholders](#template-placeholders) below. |
 | `dependencies` | no | Other tool names to install automatically when this tool is selected. |
 | `path_entries` | no | Paths to prepend to `PATH` in the final image. |
 | `env_vars` | no | Map of environment variables set in the final image. |
 | `update_source` | no | The upstream registry the tool updater queries for new versions (`docker-hub`, `github-releases`, `npm`, `pypi`, `quay`). Leave unset to skip auto-updates for this tool. |
 | `update_ref` | no | The identifier to query at `update_source`, for example an `owner/repo` for GitHub Releases or a package name for npm/PyPI. |
+| `startup_hook` | no | Shell command run once, inside the container, before the agent launches. See [Startup hooks](#startup-hooks) below. |
+| `startup_hook_vars` | no | Environment variable names that must be present (and non-empty) in the container for `startup_hook` to run. Empty or omitted means the hook runs unconditionally. |
 
 ccodolo parses a `category` field but always discards it. Every custom tool
 appears under the `Custom` category in the TUI, including overrides of
@@ -123,6 +125,43 @@ pattern:
 - Use `COPY --from=%s ...` in `instructions`.
 
 ccodolo substitutes `%s` with `source_image:default_tag` at render time.
+
+## Startup hooks
+
+A tool can declare a `startup_hook`: a shell command run once, inside the
+container, before the agent launches — for example, logging a CLI in with a
+token. Pair it with `startup_hook_vars` to make it conditional on
+environment variables being present:
+
+```json
+{
+  "name": "acme-cli",
+  "description": "Acme internal CLI",
+  "instructions": [
+    "RUN curl -fsSL https://downloads.acme.example/cli/acme-linux-amd64 -o /usr/local/bin/acme && chmod +x /usr/local/bin/acme"
+  ],
+  "startup_hook": "echo \"$ACME_TOKEN\" | acme auth login --token",
+  "startup_hook_vars": ["ACME_TOKEN"]
+}
+```
+
+If any variable in `startup_hook_vars` is missing or empty in the container,
+ccodolo skips the hook and warns on stderr before launching the agent. If
+`startup_hook_vars` is empty or omitted, the hook always runs. A
+`startup_hook`-only entry (no `instructions`) is valid — use it to
+authenticate something already present in the base image.
+
+`startup_hook` is **not** run through the template pass described in
+[Template Placeholders](#template-placeholders) below — `%s`, `{{.Tag}}`,
+etc. have no special meaning in a hook and are passed through as literal
+shell. This also means a hook can safely contain its own `%s`, for example
+in a `printf '%s\n' ...` call.
+
+ccodolo does not add passthrough, mounts, or any other plumbing for these
+variables — getting them into the container is still up to
+`passthrough_vars` or `[environment]`. See [README → Startup
+hooks](../README.md#startup-hooks) for the full runtime behavior (where
+hooks run, failure handling, logging).
 
 ## Template Placeholders
 
@@ -191,7 +230,8 @@ instead — see
 | File present but corrupt JSON | ccodolo prints a warning on stderr. It ignores the whole file. |
 | File present but empty | ccodolo prints a warning on stderr (`file ... is empty`). It ignores the whole file. |
 | Entry with empty `name` | ccodolo prints a warning. It skips that entry. The others still load. |
-| Entry with empty `instructions` | ccodolo prints a warning. It skips that entry. The others still load. |
+| Entry with empty `instructions` and no `startup_hook` | ccodolo prints a warning. It skips that entry. The others still load. |
+| Entry with an invalid `startup_hook_vars` name (not a valid POSIX env var name) | ccodolo prints a warning naming the bad entry. It skips the whole tool. The others still load. |
 | Same `name` twice in `tools` | ccodolo prints a warning. The last definition wins. |
 | `ignore` entry that matches no built-in | ccodolo prints a warning. It drops that ignore entry. |
 | `ignore` removes a tool that another tool depends on | The dependent build fails at resolve time with a clear error. |

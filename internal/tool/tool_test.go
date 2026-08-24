@@ -477,6 +477,28 @@ func TestGetLighthouse(t *testing.T) {
 	}
 }
 
+func TestGetAcliStartupHook(t *testing.T) {
+	acli, err := Get("acli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if acli.StartupHook == "" {
+		t.Error("expected acli to have a StartupHook")
+	}
+	if !strings.Contains(acli.StartupHook, "acli jira auth login") {
+		t.Errorf("expected acli StartupHook to run acli jira auth login, got %q", acli.StartupHook)
+	}
+	wantVars := []string{"JIRA_TOKEN", "JIRA_SITE", "JIRA_USER"}
+	if len(acli.StartupHookVars) != len(wantVars) {
+		t.Fatalf("expected StartupHookVars %v, got %v", wantVars, acli.StartupHookVars)
+	}
+	for i, v := range wantVars {
+		if acli.StartupHookVars[i] != v {
+			t.Errorf("expected StartupHookVars[%d] = %q, got %q", i, v, acli.StartupHookVars[i])
+		}
+	}
+}
+
 func TestResolveLighthouseDependsOnNodejsAndChromium(t *testing.T) {
 	sels := []ToolSelection{{Name: "lighthouse"}}
 	resolved, err := Resolve(sels)

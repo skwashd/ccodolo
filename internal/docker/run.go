@@ -115,6 +115,27 @@ func Run(cfg *config.Config, project, workdir, imageTag string, extraArgs []stri
 		}
 	}
 
+	// Warn about any selected tool whose startup hook will be skipped
+	// because a required variable won't reach the container. This is
+	// informational only — it does not add -e flags itself. The user is
+	// still responsible for getting the variable in via [environment] or
+	// passthrough_vars. A resolve failure here is not fatal — config and
+	// the image build have already succeeded — so just skip the warning.
+	if resolved, resolveErr := resolveTools(cfg, meta); resolveErr == nil {
+		available := make(map[string]bool)
+		for k, v := range cfg.Environment {
+			if v != "" {
+				available[k] = true
+			}
+		}
+		for _, name := range cfg.PassthroughVars {
+			if v := os.Getenv(name); v != "" {
+				available[name] = true
+			}
+		}
+		warnMissingHookVars(missingHookVars(resolved, available))
+	}
+
 	// Image tag.
 	args = append(args, imageTag)
 

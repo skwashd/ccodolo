@@ -44,6 +44,8 @@ ccodolo/
 │   │   ├── dockerfile_test.go
 │   │   ├── hash.go                  # SHA-256 image tag computation
 │   │   ├── hash_test.go
+│   │   ├── hooks.go                 # Host-side startup-hook pre-flight warning
+│   │   ├── hooks_test.go
 │   │   └── run.go                   # docker run / docker exec
 │   ├── fsutil/
 │   │   ├── copy.go                  # CopyDir/CopyFile, mode-preserving
@@ -144,7 +146,7 @@ exit
 
 **Adding a new agent**: Update `internal/agent/agent.go` (add to registry with install cmd, entrypoint, config dir, dependencies). Add agent-specific setup in `internal/project/setup.go` and wire it in `cmd/root.go`. Document in README.md.
 
-**Adding a new tool**: Update `internal/tool/tool.go` (add to catalog with source image, default tag, COPY instructions, dependencies). Add a row to the Dev Tools table in README.md — `TestREADMEMatchesCatalog` (`internal/tool/readme_test.go`) fails without it. Do not put a version number in the row; versions live in `tool.go` only.
+**Adding a new tool**: Update `internal/tool/tool.go` (add to catalog with source image, default tag, COPY instructions, dependencies). Add a row to the Dev Tools table in README.md — `TestREADMEMatchesCatalog` (`internal/tool/readme_test.go`) fails without it. Do not put a version number in the row; versions live in `tool.go` only. If the tool needs to authenticate or otherwise run something once at container start, set `StartupHook` (literal shell, not template-rendered) and `StartupHookVars` (env vars gating it — see README → [Startup hooks](README.md#startup-hooks)) instead of cramming setup into `Instructions`.
 
 **Shell configuration**: Edit `embedded/dotfiles/`, ensure both zsh and bash work, test history persistence, rebuild and verify.
 

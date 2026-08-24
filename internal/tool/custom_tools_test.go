@@ -274,6 +274,47 @@ func TestMergeRejectsEmptyInstructions(t *testing.T) {
 	}
 }
 
+func TestMergeAcceptsHookOnlyTool(t *testing.T) {
+	custom := []Tool{
+		{
+			Name:            "op-login",
+			Instructions:    nil,
+			StartupHook:     `op signin`,
+			StartupHookVars: []string{"OP_SERVICE_ACCOUNT_TOKEN"},
+		},
+	}
+	merged, warnings := mergeCatalog(makeBuiltins(), custom, nil)
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings, got %v", warnings)
+	}
+	if len(merged) != 4 {
+		t.Fatalf("expected 4 tools (hook-only entry with no instructions accepted), got %d", len(merged))
+	}
+	var got Tool
+	for _, m := range merged {
+		if m.Name == "op-login" {
+			got = m
+		}
+	}
+	if got.StartupHook != "op signin" {
+		t.Errorf("expected StartupHook to survive the merge, got %q", got.StartupHook)
+	}
+}
+
+func TestMergeRejectsInvalidStartupHookVar(t *testing.T) {
+	custom := []Tool{
+		{Name: "broken", Instructions: []string{"RUN true"}, StartupHook: "true", StartupHookVars: []string{"1BAD-NAME"}},
+		{Name: "valid", Instructions: []string{"RUN true"}},
+	}
+	merged, warnings := mergeCatalog(makeBuiltins(), custom, nil)
+	if len(merged) != 4 {
+		t.Errorf("expected 4 tools (broken rejected, valid added), got %d", len(merged))
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "1BAD-NAME") {
+		t.Errorf("expected one invalid startup_hook_vars warning naming the bad entry, got %v", warnings)
+	}
+}
+
 func TestMergeDuplicateCustomNames(t *testing.T) {
 	custom := []Tool{
 		{Name: "htop", Instructions: []string{"RUN echo first"}},

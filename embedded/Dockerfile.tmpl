@@ -62,6 +62,26 @@ USER root
 {{ . }}
 {{ end }}
 
+# ── Startup hooks ─────────────────────────────────────
+{{ if .HasStartupHooks }}
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    '# ccodolo startup hook runner: run tool hooks, then exec the agent.' \
+    'CCODOLO_HOOK_LOG=/tmp/ccodolo-startup.log' \
+    'for hook in /etc/ccodolo/startup.d/*.sh; do' \
+    '    [ -f "$hook" ] || continue' \
+    '    if ! sh "$hook" >>"$CCODOLO_HOOK_LOG" 2>&1; then' \
+    '        echo "Warning: startup hook $(basename "$hook") failed; see $CCODOLO_HOOK_LOG" >&2' \
+    '    fi' \
+    'done' \
+    'exec "$@"' \
+    > /usr/local/bin/ccodolo-startup \
+ && chmod 0755 /usr/local/bin/ccodolo-startup
+{{ end }}
+{{ range .StartupHookSteps }}
+{{ . }}
+{{ end }}
+
 # ── npm config & agent installation ─────────────────
 USER coder
 {{ if .NpmConfig }}

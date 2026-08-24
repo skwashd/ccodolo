@@ -6,10 +6,26 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"text/template"
 )
+
+// hookVarNameRegexp matches a valid POSIX environment variable name, used to
+// validate StartupHookVars entries loaded from custom-tools.json.
+var hookVarNameRegexp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// firstInvalidHookVar returns the first entry in vars that isn't a valid
+// POSIX environment variable name, or "" if all are valid.
+func firstInvalidHookVar(vars []string) string {
+	for _, v := range vars {
+		if !hookVarNameRegexp.MatchString(v) {
+			return v
+		}
+	}
+	return ""
+}
 
 // UpdateSource identifies the upstream registry the automated updater queries
 // for new versions. Empty means the tool is excluded from auto-updates.
@@ -41,6 +57,18 @@ type Tool struct {
 	EnvVars      map[string]string `json:"env_vars,omitempty"`      // env vars for the final stage
 	UpdateSource UpdateSource      `json:"update_source,omitempty"` // registry to query; "" = skip
 	UpdateRef    string            `json:"update_ref,omitempty"`    // "owner/repo", npm pkg, pypi project
+
+	// StartupHook is a shell command run once, inside the container, before
+	// the agent launches — e.g. logging a CLI in from an env var-supplied
+	// token. It is run as literal shell, not passed through the
+	// Instructions template pass, so %s/{{...}} have no special meaning
+	// here. StartupHookVars lists the environment variables that must be
+	// present (and non-empty) for the hook to run; if empty, the hook runs
+	// unconditionally. ccodolo does not add passthrough or mounts for
+	// these — the user is responsible for getting the variables into the
+	// container.
+	StartupHook     string   `json:"startup_hook,omitempty"`
+	StartupHookVars []string `json:"startup_hook_vars,omitempty"`
 }
 
 // DefaultVersion returns the version part of DefaultTag with the TagSuffix stripped.
@@ -574,6 +602,8 @@ var builtinCatalog = []Tool{
 				`  && apt update && apt install -y --no-install-recommends acli \` + "\n" +
 				`  && rm -rf /var/lib/apt/lists/*`,
 		},
+		StartupHook:     `echo "$JIRA_TOKEN" | acli jira auth login --site "$JIRA_SITE" --email "$JIRA_USER" --token`,
+		StartupHookVars: []string{"JIRA_TOKEN", "JIRA_SITE", "JIRA_USER"},
 	},
 	{
 		Name:        "ffmpeg",
@@ -888,8 +918,10 @@ func loadCustomToolsFrom(path string) (customToolsFile, error) {
 // Order of operations:
 //  1. ignore: drop built-ins whose names appear in `ignore`. Names that
 //     don't match any built-in are warned and skipped.
-//  2. custom: validate and merge each entry. Empty names and empty
-//     instructions are rejected with warnings. A custom entry that collides
+//  2. custom: validate and merge each entry. Empty names, and entries with
+//     neither instructions nor a startup_hook, are rejected with warnings —
+//     as are entries with an invalid startup_hook_vars name. A custom entry
+//     that collides
 //     with a name still in the merged catalog (i.e. a built-in that wasn't
 //     ignored) replaces it and emits an "overriding built-in" warning.
 //     Duplicate custom names within the same load replace earlier definitions
@@ -937,8 +969,13 @@ func mergeCatalog(builtins []Tool, custom []Tool, ignore []string) ([]Tool, []st
 			warnings = append(warnings, "custom tool with empty name skipped")
 			continue
 		}
-		if len(t.Instructions) == 0 {
-			warnings = append(warnings, fmt.Sprintf("custom tool %q has no instructions, skipping", name))
+		if len(t.Instructions) == 0 && t.StartupHook == "" {
+			warnings = append(warnings, fmt.Sprintf("custom tool %q has no instructions or startup_hook, skipping", name))
+			continue
+		}
+
+		if badVar := firstInvalidHookVar(t.StartupHookVars); badVar != "" {
+			warnings = append(warnings, fmt.Sprintf("custom tool %q has invalid startup_hook_vars entry %q, skipping", name, badVar))
 			continue
 		}
 

@@ -223,6 +223,9 @@ The container still starts.
 appear *before* any `[table]` header (`[environment]`, `[build]`,
 `[[volumes]]`), or TOML scopes it inside that table instead.
 
+Some tools use a passed-through variable to authenticate automatically at
+container start — see [Startup hooks](#startup-hooks).
+
 ### Migration from ccodolo.config
 
 If you have an existing `ccodolo.config`, ccodolo migrates it to
@@ -332,6 +335,40 @@ Every container includes these, regardless of tool selection:
 - **Security**: ca-certificates, gpg
 - **Utilities**: curl, fzf, jq, less, procps, sudo, unzip, xxd, xz-utils
 - **System**: adduser, libatomic1, locales (locale set to `en_US.UTF-8`)
+
+### Startup hooks
+
+A tool can declare a `startup_hook`: a shell command run once, inside the
+container, before the agent launches — for example, logging a CLI in with a
+token. If the tool also declares `startup_hook_vars`, the hook only runs
+when every listed environment variable is present *and non-empty* in the
+container; otherwise the hook is skipped and ccodolo prints a warning before
+launching:
+
+```
+Warning: skipping startup hook for "acli": JIRA_TOKEN, JIRA_SITE, JIRA_USER not available in container
+```
+
+This does not add passthrough, mounts, or any other plumbing — getting the
+variables into the container is still up to `passthrough_vars` or
+`[environment]` (see [Passthrough env vars](#passthrough-env-vars)). A hook
+that exits non-zero logs a one-line warning inside the container and the
+agent still launches; hook output is written to
+`/tmp/ccodolo-startup.log` inside the container.
+
+`acli` ships with a startup hook that logs in to Jira from `JIRA_TOKEN`,
+`JIRA_SITE`, and `JIRA_USER`:
+
+```toml
+passthrough_vars = ["JIRA_TOKEN", "JIRA_SITE", "JIRA_USER"]
+
+[tools]
+acli = ""
+```
+
+Startup hooks only run on the agent launch path (`ccodolo --project ...`);
+they do not run for `--exec` shells attached to an already-running
+container.
 
 ## Custom Tools
 
