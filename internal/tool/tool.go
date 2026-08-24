@@ -93,7 +93,7 @@ var builtinCatalog = []Tool{
 	{
 		Name:        "dotnet",
 		Category:    "runtime",
-		Description: ".NET SDK 9.0",
+		Description: ".NET SDK",
 		SourceImage: "mcr.microsoft.com/dotnet/sdk",
 		DefaultTag:  "9.0",
 		Instructions: []string{
@@ -380,7 +380,7 @@ var builtinCatalog = []Tool{
 	{
 		Name:        "helm",
 		Category:    "cloud",
-		Description: "Helm 4 package manager for Kubernetes",
+		Description: "Helm package manager for Kubernetes",
 		Instructions: []string{
 			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.2.4/scripts/get-helm-4 | bash",
 		},

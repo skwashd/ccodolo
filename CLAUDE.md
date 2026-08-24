@@ -71,6 +71,8 @@ ccodolo/
 │   ├── embed.go                     # go:embed directives
 │   ├── Dockerfile.tmpl              # Templatized Dockerfile
 │   └── dotfiles/                    # Shell configurations (.bashrc, .zshrc, .inputrc)
+├── docs/
+│   └── custom-tools.md              # Custom tool catalog reference (custom-tools.json)
 └── template.example/                # Example project templates
 ```
 
@@ -138,7 +140,7 @@ exit
 
 **Adding a new agent**: Update `internal/agent/agent.go` (add to registry with install cmd, entrypoint, config dir, dependencies). Add agent-specific setup in `internal/project/setup.go` and wire it in `cmd/root.go`. Document in README.md.
 
-**Adding a new tool**: Update `internal/tool/tool.go` (add to catalog with source image, default tag, COPY instructions, dependencies). Document in README.md.
+**Adding a new tool**: Update `internal/tool/tool.go` (add to catalog with source image, default tag, COPY instructions, dependencies). Add a row to the Dev Tools table in README.md — `TestREADMEMatchesCatalog` (`internal/tool/readme_test.go`) fails without it. Do not put a version number in the row; versions live in `tool.go` only.
 
 **Shell configuration**: Edit `embedded/dotfiles/`, ensure both zsh and bash work, test history persistence, rebuild and verify.
 
