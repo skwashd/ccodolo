@@ -277,6 +277,7 @@ reproducible builds. Select tools during project creation in the TUI, with
 | `acli` | Utilities | Atlassian CLI |
 | `ffmpeg` | Utilities | FFmpeg audio/video toolkit |
 | `gh` | Utilities | GitHub CLI |
+| `golangci-lint` | Utilities | Go linters aggregator |
 | `imagemagick` | Utilities | ImageMagick image processing suite |
 | `linear-cli` | Utilities | Linear CLI (unofficial) |
 | `lychee` | Utilities | Lychee link checker |
@@ -311,6 +312,7 @@ These tools install their dependencies automatically:
 - `cloudflare-cli` installs `nodejs`
 - `tflint` installs `terraform`
 - `hugo` installs `golang`
+- `golangci-lint` installs `golang`
 - `playwright` installs `nodejs`
 - `playwright-cli` installs `playwright`
 - `lighthouse` installs `nodejs` and `chromium`

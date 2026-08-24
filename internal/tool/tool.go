@@ -599,6 +599,19 @@ var builtinCatalog = []Tool{
 		UpdateRef:    "cli/cli",
 	},
 	{
+		Name:         "golangci-lint",
+		Category:     "utils",
+		Description:  "Go linters aggregator",
+		DefaultTag:   "2.13.1",
+		Dependencies: []string{"golang"},
+		Instructions: []string{
+			`RUN curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v{{.Tag}}/golangci-lint-{{.Tag}}-linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
+				`  | tar xz --strip-components=1 -C /usr/local/bin --wildcards '*/golangci-lint'`,
+		},
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "golangci/golangci-lint",
+	},
+	{
 		Name:        "imagemagick",
 		Category:    "utils",
 		Description: "ImageMagick image processing suite",
