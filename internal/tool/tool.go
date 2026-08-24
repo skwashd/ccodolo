@@ -70,7 +70,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.3.14",
+		DefaultTag:  "1.4.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
@@ -109,7 +109,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Go",
 		SourceImage: "public.ecr.aws/docker/library/golang",
-		DefaultTag:  "1.26",
+		DefaultTag:  "1.27",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/go /usr/local/go",
 			"RUN ln -sf /usr/local/go/bin/go /usr/local/bin/go && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt",
@@ -205,7 +205,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "public.ecr.aws/docker/library/rust",
-		DefaultTag:  "1.97.1",
+		DefaultTag:  "1.98.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -266,7 +266,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.76.2",
+		DefaultTag:  "0.77.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -290,7 +290,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.22",
+		DefaultTag:   "1.5.23",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -358,7 +358,7 @@ var builtinCatalog = []Tool{
 		Name:         "cloudflare-cli",
 		Category:     "cloud",
 		Description:  "Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more",
-		DefaultTag:   "0.6.0",
+		DefaultTag:   "0.8.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g cf@{{.Tag}}",
@@ -389,7 +389,7 @@ var builtinCatalog = []Tool{
 		Name:        "kubectl",
 		Category:    "cloud",
 		Description: "Kubernetes CLI",
-		DefaultTag:  "1.36.3",
+		DefaultTag:  "1.36.4",
 		Instructions: []string{
 			`RUN curl -fsSL "https://dl.k8s.io/release/v{{.Tag}}/bin/linux/$(dpkg --print-architecture)/kubectl" -o /usr/local/bin/kubectl \` + "\n" +
 				`  && chmod +x /usr/local/bin/kubectl`,
@@ -402,7 +402,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.15.8",
+		DefaultTag:  "1.15.9",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -587,7 +587,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.97.0",
+		DefaultTag:  "2.98.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -680,7 +680,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.55",
+		DefaultTag:  "0.2.60",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -735,7 +735,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.07.04",
+		DefaultTag:   "2026.08.19",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
