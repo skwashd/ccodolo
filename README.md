@@ -359,11 +359,19 @@ custom_steps = [
 Only **RUN**, **COPY**, and **ADD** are allowed. The single-layer squash
 loses other instructions, for example `ENV` and `WORKDIR`.
 
-COPY/ADD source paths in `custom_steps` resolve relative to
-`~/.ccodolo/common/`, the global common directory — not the project's
-`common/` directory. `root_steps` sources are not staged at all: a `COPY` or
-`ADD` instruction in `root_steps` fails at build time. Use `custom_steps`
-for any instruction that copies a local file.
+COPY/ADD source paths resolve relative to the `common/` directory beside
+the config file that declared the step:
+
+| Step declared in | Sources resolve against |
+|-------------------|--------------------------|
+| `~/.ccodolo/ccodolo.toml` (global) | `~/.ccodolo/common/` |
+| `~/.ccodolo/projects/<name>/ccodolo.toml` (project) | `~/.ccodolo/projects/<name>/common/` |
+
+This applies to both `custom_steps` and `root_steps`. `common/` doubles as
+both the directory ccodolo mounts into the container (see
+[Common Directory](#common-directory)) and the staging area for build-time
+COPY/ADD sources. A source that doesn't exist fails the build with an error
+naming the step and the directory searched.
 
 ### Early root steps
 
@@ -374,8 +382,11 @@ step, including the `zsh-in-docker` install and all dev-tool installs. Use
 internal CA certificate or a private apt source must exist before anything
 runs `curl` against internal infrastructure.
 
-Fetch what you need over the network and verify it. Do not try to stage
-local files into the build. A CA-certificate install looks like this:
+`root_steps` COPY/ADD sources are staged the same way as `custom_steps`.
+`WORKDIR` is `/` during `root_steps` — it only becomes `/workspace` later,
+before `custom_steps` runs — so COPY/ADD destinations in `root_steps`
+should be absolute paths. A CA-certificate install, fetched over the
+network and verified, looks like this:
 
 ```toml
 [build]
@@ -449,10 +460,16 @@ rebuilds if the image already exists. Use `--rebuild` to force one.
 
 The container supports both **zsh** (default) and **bash**:
 
-- Default shell: zsh
+- Default shell: zsh, with oh-my-zsh and the default powerlevel10k theme
 - Switch to bash: `ccodolo --project myapp --exec` then `/bin/bash`
 - Both shells: 100k history, fzf integration, Shift+Enter mapping
 - History files stored in `/commandhistory/` persist across container restarts
+
+The `zsh-in-docker` installer generates `~/.zshrc` at build time. ccodolo's
+own dotfile is copied to `~/.zshrc.local` instead and sourced at the end of
+the generated `~/.zshrc`, so it always applies. Add your own aliases,
+prompt tweaks, or `bindkey`s the same way: a `custom_steps`/`root_steps`
+step that appends to `~/.zshrc.local` picks them up on the next shell.
 
 ## Authentication
 

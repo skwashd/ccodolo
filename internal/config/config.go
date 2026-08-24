@@ -48,10 +48,52 @@ func (cfg *Config) SetTools(entries []ToolEntry) {
 	}
 }
 
+// StepOrigin records which config file declared a build step, so COPY/ADD
+// sources in that step resolve against the matching common/ directory.
+type StepOrigin string
+
+const (
+	// OriginGlobal marks a step declared in the global ~/.ccodolo/ccodolo.toml.
+	OriginGlobal StepOrigin = "global"
+	// OriginProject marks a step declared in a project's ccodolo.toml.
+	OriginProject StepOrigin = "project"
+)
+
 // BuildConfig holds custom Dockerfile build steps.
 type BuildConfig struct {
 	CustomSteps []string `toml:"custom_steps"`
 	RootSteps   []string `toml:"root_steps"`
+
+	// CustomStepOrigins and RootStepOrigins run parallel to the step slices
+	// above, recording which config file declared each step so COPY/ADD
+	// sources resolve against the matching common/ directory. Populated by
+	// Merge; never serialised (configs built by LoadProjectOnly or directly
+	// in tests never go through Merge, so callers must use the
+	// CustomStepOrigin/RootStepOrigin accessors rather than indexing these
+	// slices directly).
+	CustomStepOrigins []StepOrigin `toml:"-"`
+	RootStepOrigins   []StepOrigin `toml:"-"`
+}
+
+// CustomStepOrigin returns the origin of CustomSteps[i], defaulting to
+// OriginProject when the origins slice is shorter than i — configs built by
+// LoadProjectOnly or directly in tests never go through Merge and won't have
+// origins populated.
+func (cfg *Config) CustomStepOrigin(i int) StepOrigin {
+	if i < 0 || i >= len(cfg.Build.CustomStepOrigins) {
+		return OriginProject
+	}
+	return cfg.Build.CustomStepOrigins[i]
+}
+
+// RootStepOrigin returns the origin of RootSteps[i], defaulting to
+// OriginProject when the origins slice is shorter than i — see
+// CustomStepOrigin.
+func (cfg *Config) RootStepOrigin(i int) StepOrigin {
+	if i < 0 || i >= len(cfg.Build.RootStepOrigins) {
+		return OriginProject
+	}
+	return cfg.Build.RootStepOrigins[i]
 }
 
 // Volume represents an additional volume mount.
@@ -82,6 +124,32 @@ func GlobalConfigPath() (string, error) {
 // ProjectConfigPath returns the path to a project's ccodolo.toml.
 func ProjectConfigPath(projectPath string) string {
 	return filepath.Join(projectPath, "ccodolo.toml")
+}
+
+// ProjectPath returns the on-disk directory for a project, given its name.
+func ProjectPath(name string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+	return filepath.Join(home, ".ccodolo", "projects", name), nil
+}
+
+// CommonDir returns the common/ directory beside a project's ccodolo.toml.
+// COPY/ADD sources in project-origin build steps resolve against this dir.
+func CommonDir(projectPath string) string {
+	return filepath.Join(projectPath, "common")
+}
+
+// GlobalCommonDir returns the common/ directory beside the global
+// ccodolo.toml. COPY/ADD sources in global-origin build steps resolve
+// against this dir.
+func GlobalCommonDir() (string, error) {
+	dir, err := GlobalConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "common"), nil
 }
 
 // Load loads and merges the global and project configs.
@@ -193,13 +261,26 @@ func Merge(global, project *Config) *Config {
 		result.Tools[name] = version
 	}
 
-	// Build.CustomSteps: concatenated.
+	// Build.CustomSteps: concatenated. Origins run in lockstep so COPY/ADD
+	// sources later resolve against the matching common/ directory.
 	result.Build.CustomSteps = append(result.Build.CustomSteps, global.Build.CustomSteps...)
 	result.Build.CustomSteps = append(result.Build.CustomSteps, project.Build.CustomSteps...)
+	for range global.Build.CustomSteps {
+		result.Build.CustomStepOrigins = append(result.Build.CustomStepOrigins, OriginGlobal)
+	}
+	for range project.Build.CustomSteps {
+		result.Build.CustomStepOrigins = append(result.Build.CustomStepOrigins, OriginProject)
+	}
 
-	// Build.RootSteps: concatenated.
+	// Build.RootSteps: concatenated, with origins in lockstep (see above).
 	result.Build.RootSteps = append(result.Build.RootSteps, global.Build.RootSteps...)
 	result.Build.RootSteps = append(result.Build.RootSteps, project.Build.RootSteps...)
+	for range global.Build.RootSteps {
+		result.Build.RootStepOrigins = append(result.Build.RootStepOrigins, OriginGlobal)
+	}
+	for range project.Build.RootSteps {
+		result.Build.RootStepOrigins = append(result.Build.RootStepOrigins, OriginProject)
+	}
 
 	// Volumes: union, project overrides by container path.
 	volMap := make(map[string]Volume)

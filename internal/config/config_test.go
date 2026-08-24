@@ -223,6 +223,66 @@ func TestMergeRootSteps(t *testing.T) {
 	}
 }
 
+func TestMergeStepOrigins(t *testing.T) {
+	global := &Config{Build: BuildConfig{
+		CustomSteps: []string{"RUN echo global-custom-1", "RUN echo global-custom-2"},
+		RootSteps:   []string{"RUN echo global-root"},
+	}}
+	project := &Config{Build: BuildConfig{
+		CustomSteps: []string{"RUN echo project-custom"},
+		RootSteps:   []string{"RUN echo project-root-1", "RUN echo project-root-2"},
+	}}
+	result := Merge(global, project)
+
+	// CustomStepOrigins must match CustomSteps 1:1, in the same order:
+	// global entries first, then project entries.
+	if len(result.Build.CustomStepOrigins) != len(result.Build.CustomSteps) {
+		t.Fatalf("expected %d custom step origins, got %d",
+			len(result.Build.CustomSteps), len(result.Build.CustomStepOrigins))
+	}
+	wantCustomOrigins := []StepOrigin{OriginGlobal, OriginGlobal, OriginProject}
+	for i, want := range wantCustomOrigins {
+		if result.CustomStepOrigin(i) != want {
+			t.Errorf("CustomStepOrigin(%d) = %q, want %q", i, result.CustomStepOrigin(i), want)
+		}
+	}
+
+	// RootStepOrigins must match RootSteps 1:1, in the same order.
+	if len(result.Build.RootStepOrigins) != len(result.Build.RootSteps) {
+		t.Fatalf("expected %d root step origins, got %d",
+			len(result.Build.RootSteps), len(result.Build.RootStepOrigins))
+	}
+	wantRootOrigins := []StepOrigin{OriginGlobal, OriginProject, OriginProject}
+	for i, want := range wantRootOrigins {
+		if result.RootStepOrigin(i) != want {
+			t.Errorf("RootStepOrigin(%d) = %q, want %q", i, result.RootStepOrigin(i), want)
+		}
+	}
+}
+
+func TestStepOriginDefaultsToProjectWhenUnpopulated(t *testing.T) {
+	// Configs built by LoadProjectOnly, or directly in tests, never go
+	// through Merge and won't have origins populated. The accessors must
+	// default to OriginProject rather than panic or silently misresolve.
+	cfg := &Config{Build: BuildConfig{
+		CustomSteps: []string{"COPY a /dst", "COPY b /dst"},
+		RootSteps:   []string{"COPY c /dst"},
+	}}
+	if got := cfg.CustomStepOrigin(0); got != OriginProject {
+		t.Errorf("CustomStepOrigin(0) = %q, want %q", got, OriginProject)
+	}
+	if got := cfg.CustomStepOrigin(1); got != OriginProject {
+		t.Errorf("CustomStepOrigin(1) = %q, want %q", got, OriginProject)
+	}
+	if got := cfg.RootStepOrigin(0); got != OriginProject {
+		t.Errorf("RootStepOrigin(0) = %q, want %q", got, OriginProject)
+	}
+	// Out-of-range indices must not panic.
+	if got := cfg.CustomStepOrigin(99); got != OriginProject {
+		t.Errorf("CustomStepOrigin(99) = %q, want %q", got, OriginProject)
+	}
+}
+
 func TestMergeVolumes(t *testing.T) {
 	global := &Config{
 		Volumes: []Volume{
@@ -481,6 +541,39 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 	if loaded.Environment["FOO"] != "bar" {
 		t.Errorf("expected FOO='bar', got %q", loaded.Environment["FOO"])
+	}
+}
+
+func TestSaveOmitsStepOrigins(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ccodolo.toml")
+
+	global := &Config{Build: BuildConfig{CustomSteps: []string{"RUN echo global"}}}
+	project := &Config{Build: BuildConfig{
+		CustomSteps: []string{"RUN echo project"},
+		RootSteps:   []string{"COPY a /dst"},
+	}}
+	cfg := Merge(global, project)
+	// Sanity check: origins are actually populated before we assert they
+	// don't leak into the saved file.
+	if len(cfg.Build.CustomStepOrigins) == 0 || len(cfg.Build.RootStepOrigins) == 0 {
+		t.Fatal("test setup error: expected Merge to populate step origins")
+	}
+
+	if err := Save(cfg, path); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading saved config: %v", err)
+	}
+	written := string(data)
+
+	for _, key := range []string{"CustomStepOrigins", "RootStepOrigins", "custom_step_origins", "root_step_origins", "origin"} {
+		if strings.Contains(strings.ToLower(written), strings.ToLower(key)) {
+			t.Errorf("saved config should not mention %q, got:\n%s", key, written)
+		}
 	}
 }
 

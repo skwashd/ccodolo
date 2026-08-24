@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/skwashd/ccodolo/internal/config"
+	"github.com/skwashd/ccodolo/internal/fsutil"
 )
 
-// EnsureDirs creates the standard project subdirectories.
+// EnsureDirs creates the standard project subdirectories, plus the global
+// common/ directory (beside ~/.ccodolo/ccodolo.toml) so global-origin
+// custom_steps/root_steps have somewhere to stage COPY/ADD sources from.
 func EnsureDirs(projectPath string, agentConfigDir string) error {
 	dirs := []string{
 		filepath.Join(projectPath, "commandhistory"),
@@ -17,6 +22,14 @@ func EnsureDirs(projectPath string, agentConfigDir string) error {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return fmt.Errorf("creating directory %s: %w", d, err)
 		}
+	}
+
+	globalCommon, err := config.GlobalCommonDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(globalCommon, 0o755); err != nil {
+		return fmt.Errorf("creating directory %s: %w", globalCommon, err)
 	}
 
 	// Create initial .claude.json for claude agent.
@@ -46,40 +59,5 @@ func CopyTemplate(projectPath string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Copying template from %s\n", templateDir)
-	return copyDir(templateDir, projectPath)
-}
-
-// copyDir recursively copies src to dst, preserving permissions.
-func copyDir(src, dst string) error {
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			if err := os.MkdirAll(dstPath, 0o755); err != nil {
-				return err
-			}
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			data, err := os.ReadFile(srcPath)
-			if err != nil {
-				return err
-			}
-			info, err := entry.Info()
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(dstPath, data, info.Mode()); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return fsutil.CopyDir(templateDir, projectPath)
 }

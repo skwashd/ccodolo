@@ -1,12 +1,14 @@
 package docker
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestImageTag(t *testing.T) {
-	tag := ImageTag("myproject", "claude", "FROM debian:trixie-slim\nRUN echo hello")
+	tag := ImageTag("myproject", "claude", "FROM debian:trixie-slim\nRUN echo hello", nil)
 
 	if !strings.HasPrefix(tag, "ccodolo:myproject-claude-") {
 		t.Errorf("expected tag to start with 'ccodolo:myproject-claude-', got %q", tag)
@@ -25,16 +27,16 @@ func TestImageTag(t *testing.T) {
 
 func TestImageTagDeterministic(t *testing.T) {
 	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
-	tag1 := ImageTag("proj", "claude", dockerfile)
-	tag2 := ImageTag("proj", "claude", dockerfile)
+	tag1 := ImageTag("proj", "claude", dockerfile, nil)
+	tag2 := ImageTag("proj", "claude", dockerfile, nil)
 	if tag1 != tag2 {
 		t.Errorf("expected deterministic tags, got %q and %q", tag1, tag2)
 	}
 }
 
 func TestImageTagDifferentInputs(t *testing.T) {
-	tag1 := ImageTag("proj", "claude", "FROM debian:trixie-slim\nRUN echo hello")
-	tag2 := ImageTag("proj", "claude", "FROM debian:trixie-slim\nRUN echo world")
+	tag1 := ImageTag("proj", "claude", "FROM debian:trixie-slim\nRUN echo hello", nil)
+	tag2 := ImageTag("proj", "claude", "FROM debian:trixie-slim\nRUN echo world", nil)
 	if tag1 == tag2 {
 		t.Error("different Dockerfiles should produce different tags")
 	}
@@ -42,8 +44,8 @@ func TestImageTagDifferentInputs(t *testing.T) {
 
 func TestImageTagDifferentProjects(t *testing.T) {
 	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
-	tag1 := ImageTag("proj1", "claude", dockerfile)
-	tag2 := ImageTag("proj2", "claude", dockerfile)
+	tag1 := ImageTag("proj1", "claude", dockerfile, nil)
+	tag2 := ImageTag("proj2", "claude", dockerfile, nil)
 
 	// Same hash but different project names.
 	if !strings.HasPrefix(tag1, "ccodolo:proj1-claude-") {
@@ -56,8 +58,8 @@ func TestImageTagDifferentProjects(t *testing.T) {
 
 func TestImageTagDifferentAgents(t *testing.T) {
 	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
-	tag1 := ImageTag("proj", "claude", dockerfile)
-	tag2 := ImageTag("proj", "copilot", dockerfile)
+	tag1 := ImageTag("proj", "claude", dockerfile, nil)
+	tag2 := ImageTag("proj", "copilot", dockerfile, nil)
 	if tag1 == tag2 {
 		t.Error("different agents should produce different tags")
 	}
@@ -66,5 +68,64 @@ func TestImageTagDifferentAgents(t *testing.T) {
 	}
 	if !strings.HasPrefix(tag2, "ccodolo:proj-copilot-") {
 		t.Errorf("expected tag2 to start with 'ccodolo:proj-copilot-', got %q", tag2)
+	}
+}
+
+func TestImageTagStagedFileContentsChangeTag(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "g.sh")
+	if err := os.WriteFile(path, []byte("echo one"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
+	staged := []stagedFile{{RelPath: "g.sh", SrcPath: path}}
+	tag1 := ImageTag("proj", "claude", dockerfile, staged)
+
+	if err := os.WriteFile(path, []byte("echo two"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tag2 := ImageTag("proj", "claude", dockerfile, staged)
+
+	if tag1 == tag2 {
+		t.Error("changing staged file contents should change the tag")
+	}
+}
+
+func TestImageTagStagedFileModeChangesTag(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "g.sh")
+	if err := os.WriteFile(path, []byte("echo one"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
+	staged := []stagedFile{{RelPath: "g.sh", SrcPath: path}}
+	tag1 := ImageTag("proj", "claude", dockerfile, staged)
+
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tag2 := ImageTag("proj", "claude", dockerfile, staged)
+
+	if tag1 == tag2 {
+		t.Error("changing staged file mode should change the tag")
+	}
+}
+
+func TestImageTagStagedFilesIdenticalInputsSameTag(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "g.sh")
+	if err := os.WriteFile(path, []byte("echo one"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dockerfile := "FROM debian:trixie-slim\nRUN echo hello"
+	staged := []stagedFile{{RelPath: "g.sh", SrcPath: path}}
+	tag1 := ImageTag("proj", "claude", dockerfile, staged)
+	tag2 := ImageTag("proj", "claude", dockerfile, staged)
+
+	if tag1 != tag2 {
+		t.Errorf("expected identical inputs to produce identical tags, got %q and %q", tag1, tag2)
 	}
 }

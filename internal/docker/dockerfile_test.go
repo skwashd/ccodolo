@@ -171,6 +171,70 @@ func TestRenderDockerfileWithRootSteps(t *testing.T) {
 	}
 }
 
+func TestRenderDockerfileZshrcLocalHook(t *testing.T) {
+	cfg := &config.Config{Agent: "claude"}
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The embedded dotfile is named .zshrc.local (matching its container
+	// destination) precisely so it copies alongside .bashrc/.inputrc in one
+	// COPY — it lands as a sidecar, not the live zsh config location, since
+	// the zsh-in-docker installer truncates ~/.zshrc and would silently
+	// lose it if we wrote there directly.
+	if !strings.Contains(result, "COPY dotfiles/.bashrc dotfiles/.inputrc dotfiles/.zshrc.local /home/coder/") {
+		t.Error("should copy .bashrc, .inputrc, and .zshrc.local to /home/coder/ in one COPY")
+	}
+
+	zshInDockerIdx := strings.Index(result, "zsh-in-docker.sh")
+	sourceHookIdx := strings.Index(result, `[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"`)
+	if zshInDockerIdx == -1 {
+		t.Fatal("zsh-in-docker install not found in rendered output")
+	}
+	if sourceHookIdx == -1 {
+		t.Fatal(".zshrc.local source hook not found in rendered output")
+	}
+	if sourceHookIdx <= zshInDockerIdx {
+		t.Error(".zshrc.local should be sourced after the zsh-in-docker install")
+	}
+
+	// The build-time-baked TERM export must be stripped so a forwarded
+	// TERM from the host survives.
+	if !strings.Contains(result, `sed -i '/export TERM=xterm/d' "$HOME/.zshrc"`) {
+		t.Error("should strip the baked 'export TERM=xterm' line from the generated .zshrc")
+	}
+}
+
+func TestRenderDockerfileLangEnv(t *testing.T) {
+	cfg := &config.Config{Agent: "claude"}
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	scratchIdx := strings.Index(result, "FROM scratch")
+	langIdx := strings.Index(result, "ENV LANG=en_US.UTF-8")
+	if scratchIdx == -1 {
+		t.Fatal("FROM scratch not found in rendered output")
+	}
+	if langIdx == -1 {
+		t.Fatal("ENV LANG=en_US.UTF-8 not found in rendered output")
+	}
+	if langIdx <= scratchIdx {
+		t.Error("ENV LANG should be declared after FROM scratch (ENV is metadata-only and lost in the squash)")
+	}
+	if !strings.Contains(result, "ENV LANGUAGE=en_US:en") {
+		t.Error("should declare ENV LANGUAGE=en_US:en")
+	}
+	// LC_ALL is deliberately not set — it would override every LC_*
+	// category, and the generated .zshrc already exports it for
+	// interactive shells.
+	if strings.Contains(result, "ENV LC_ALL") {
+		t.Error("should NOT declare ENV LC_ALL")
+	}
+}
+
 func TestRenderDockerfileInvalidAgent(t *testing.T) {
 	cfg := &config.Config{Agent: "invalid"}
 	_, err := RenderDockerfile(cfg)

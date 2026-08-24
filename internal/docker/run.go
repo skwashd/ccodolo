@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,11 +25,10 @@ func Run(cfg *config.Config, project, workdir, imageTag string, extraArgs []stri
 		return err
 	}
 
-	home, err := os.UserHomeDir()
+	projectPath, err := config.ProjectPath(project)
 	if err != nil {
 		return fmt.Errorf("getting home directory: %w", err)
 	}
-	projectPath := filepath.Join(home, ".ccodolo", "projects", project)
 	workdirBase := filepath.Base(workdir)
 	containerWorkspace := fmt.Sprintf("/workspace/%s/%s", project, workdirBase)
 	containerName := fmt.Sprintf("ccodolo-%s-%s-%s", project, workdirBase, time.Now().Format("200601021504"))
@@ -95,6 +95,24 @@ func Run(cfg *config.Config, project, workdir, imageTag string, extraArgs []stri
 			continue
 		}
 		args = append(args, "-e", name)
+	}
+
+	// Forward TERM and COLORTERM from the host shell so the container's
+	// interactive shell gets a matching terminal capability set. Config
+	// [environment] and passthrough_vars entries take precedence — skip a
+	// var the user already specified there. Unlike passthrough_vars, a
+	// var that's unset on the host is skipped silently: this is a
+	// convenience default, not an explicit user request.
+	for _, name := range []string{"TERM", "COLORTERM"} {
+		if _, ok := cfg.Environment[name]; ok {
+			continue
+		}
+		if slices.Contains(cfg.PassthroughVars, name) {
+			continue
+		}
+		if v := os.Getenv(name); v != "" {
+			args = append(args, "-e", fmt.Sprintf("%s=%s", name, v))
+		}
 	}
 
 	// Image tag.

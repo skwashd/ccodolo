@@ -38,12 +38,16 @@ ccodolo/
 │   │   ├── migrate.go               # ccodolo.config → ccodolo.toml migration
 │   │   └── migrate_test.go
 │   ├── docker/
-│   │   ├── build.go                 # Image build orchestration
+│   │   ├── build.go                 # Image build orchestration, build-context staging
+│   │   ├── build_test.go
 │   │   ├── dockerfile.go            # Dockerfile template rendering
 │   │   ├── dockerfile_test.go
 │   │   ├── hash.go                  # SHA-256 image tag computation
 │   │   ├── hash_test.go
 │   │   └── run.go                   # docker run / docker exec
+│   ├── fsutil/
+│   │   ├── copy.go                  # CopyDir/CopyFile, mode-preserving
+│   │   └── copy_test.go
 │   ├── project/
 │   │   ├── project.go               # Dir creation, template copying
 │   │   ├── project_test.go
@@ -70,7 +74,7 @@ ccodolo/
 ├── embedded/
 │   ├── embed.go                     # go:embed directives
 │   ├── Dockerfile.tmpl              # Templatized Dockerfile
-│   └── dotfiles/                    # Shell configurations (.bashrc, .zshrc, .inputrc)
+│   └── dotfiles/                    # Shell configurations (.bashrc, .zshrc.local, .inputrc)
 ├── docs/
 │   └── custom-tools.md              # Custom tool catalog reference (custom-tools.json)
 └── template.example/                # Example project templates
