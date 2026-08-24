@@ -42,12 +42,14 @@ RUN apt update && apt upgrade -y \
 USER coder
 WORKDIR /workspace
 
-COPY dotfiles/.bashrc dotfiles/.zshrc dotfiles/.inputrc /home/coder/
+COPY dotfiles/.bashrc dotfiles/.inputrc dotfiles/.zshrc.local /home/coder/
 
-# Default powerline10k theme
+# oh-my-zsh with the default powerlevel10k theme
 ARG ZSH_IN_DOCKER_VERSION=1.2.1
 RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
-    -p git -p fzf -x
+    -p git -p fzf -x \
+    && sed -i '/export TERM=xterm/d' "$HOME/.zshrc" \
+    && printf '\n[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"\n' >> "$HOME/.zshrc"
 
 # ── Bundled dev tools ────────────────────────────────
 USER root
@@ -57,6 +59,26 @@ USER root
 
 # ── Custom build steps ───────────────────────────────
 {{ range .CustomSteps }}
+{{ . }}
+{{ end }}
+
+# ── Startup hooks ─────────────────────────────────────
+{{ if .HasStartupHooks }}
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    '# ccodolo startup hook runner: run tool hooks, then exec the agent.' \
+    'CCODOLO_HOOK_LOG=/tmp/ccodolo-startup.log' \
+    'for hook in /etc/ccodolo/startup.d/*.sh; do' \
+    '    [ -f "$hook" ] || continue' \
+    '    if ! sh "$hook" >>"$CCODOLO_HOOK_LOG" 2>&1; then' \
+    '        echo "Warning: startup hook $(basename "$hook") failed; see $CCODOLO_HOOK_LOG" >&2' \
+    '    fi' \
+    'done' \
+    'exec "$@"' \
+    > /usr/local/bin/ccodolo-startup \
+ && chmod 0755 /usr/local/bin/ccodolo-startup
+{{ end }}
+{{ range .StartupHookSteps }}
 {{ . }}
 {{ end }}
 
@@ -77,6 +99,8 @@ ENV VISUAL=vim
 ENV HISTFILE=/commandhistory/.zsh_history
 ENV HISTSIZE=100000
 ENV SAVEHIST=100000
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
 {{ range .ToolEnvVars }}
 ENV {{ . }}
 {{ end }}

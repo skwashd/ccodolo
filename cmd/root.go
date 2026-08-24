@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -80,11 +79,10 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve project path.
-	home, err := os.UserHomeDir()
+	projectPath, err := config.ProjectPath(flagProject)
 	if err != nil {
 		return fmt.Errorf("getting home directory: %w", err)
 	}
-	projectPath := filepath.Join(home, ".ccodolo", "projects", flagProject)
 
 	// Resolve workdir.
 	workdir := flagWorkdir
@@ -230,7 +228,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build image.
-	imageTag, err := docker.Build(cfg, flagProject, flagRebuild)
+	imageTag, err := docker.Build(cfg, flagProject, projectPath, flagRebuild)
 	if err != nil {
 		return fmt.Errorf("building image: %w", err)
 	}

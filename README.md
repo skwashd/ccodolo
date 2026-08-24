@@ -1,8 +1,30 @@
 # CCoDoLo: Multi-Agent Coding Environment
 
-Sandboxed Docker containers for running AI coding assistants in YOLO mode. Each project gets an isolated container with only the agent and dev tools you need.
+CCoDoLo runs AI coding assistants in sandboxed Docker containers, in YOLO
+mode. Each project gets an isolated container with only the agent and the
+dev tools you need.
 
-The project name is a combination of Claude Code, Docker and YOLO. The original 3 key components of the environment.
+The name combines Claude Code, Docker, and YOLO — the three original
+components of the environment.
+
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Quickstart](#quickstart)
+- [Supported Agents](#supported-agents)
+- [Command](#command)
+- [Configuration](#configuration)
+- [Dev Tools](#dev-tools)
+- [Custom Tools](#custom-tools)
+- [Custom Build Steps](#custom-build-steps)
+- [Project Directories](#project-directories)
+- [Image Architecture](#image-architecture)
+- [Shell Support](#shell-support)
+- [Authentication](#authentication)
+- [Project Templates](#project-templates)
+- [Troubleshooting](#troubleshooting)
+- [Migrating from the Shell Script](#migrating-from-the-shell-script)
+- [License](#license)
 
 ## Prerequisites
 
@@ -33,11 +55,12 @@ mkdir -p ~/.local/bin && mv ccodolo ~/.local/bin/
 # export PATH="$HOME/.local/bin:$PATH"
 ```
 
-> **macOS note:** release binaries are signed with a Developer ID certificate and notarized
-> with Apple. Archives downloaded via a browser pass Gatekeeper's online check on first run
-> (network access to Apple's servers is required for that first check). Binaries installed
-> via `go install` or downloaded with `curl`/`wget` are not quarantined, so Gatekeeper is
-> not invoked for those paths.
+> **macOS note:** Apple signs and notarizes release binaries with a
+> Developer ID certificate. An archive downloaded through a browser passes
+> Gatekeeper's online check on first run, which needs network access to
+> Apple's servers. A binary installed with `go install`, or downloaded with
+> `curl` or `wget`, carries no quarantine flag, so Gatekeeper does not run
+> for those paths.
 
 ### Build from source
 
@@ -56,7 +79,9 @@ cd /path/to/your/repo
 ccodolo --project my-first-project --create-new
 ```
 
-The interactive TUI will let you select dev tools. The container will start with Claude Code (the default agent). Your working directory will be mounted at `/workspace/my-first-project/<repo>` inside the container.
+The interactive TUI lets you select dev tools. The container starts with
+Claude Code, the default agent. ccodolo mounts your working directory at
+`/workspace/my-first-project/<repo>` inside the container.
 
 ## Supported Agents
 
@@ -79,13 +104,20 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 |------|-------------|---------|
 | `--project <name>` | Project name (required) | — |
 | `--workdir <path>` | Working directory to mount | Current directory |
-| `--agent <name>` | Agent to use | `claude` (or from config) |
+| `--agent <name>` | Agent to use | `claude` (or from configuration) |
 | `--tools <list>` | Comma-separated dev tools (supports version pinning: `python:3.12-slim`) | Interactive TUI |
 | `--create-new` | Skip confirmation for new project | — |
 | `--reconfigure` | Update agent and tools for existing project | — |
 | `--exec` | Attach to existing container | — |
 | `--rebuild` | Force image rebuild | — |
 | `--build-only` | Build image without launching | — |
+
+ccodolo also has a `version` subcommand, which prints the build version, the
+commit hash, and the build date. There is no `--version` flag.
+
+`--reconfigure` cannot combine with `--create-new`, `--exec`, or
+`--build-only`. If you run `--reconfigure` with no terminal attached, for
+example inside a script, you must also pass `--agent`, `--tools`, or both.
 
 ### Examples
 
@@ -117,7 +149,7 @@ ccodolo --project myapp -- -p "Refactor the auth module"
 # Build image for CI/CD
 IMAGE=$(ccodolo --project myapp --build-only)
 
-# Force rebuild after config changes
+# Force rebuild after configuration changes
 ccodolo --project myapp --rebuild
 ```
 
@@ -128,7 +160,7 @@ CCoDoLo uses TOML configuration with two levels:
 - **Global**: `~/.ccodolo/ccodolo.toml` — defaults for all projects
 - **Project**: `~/.ccodolo/projects/<name>/ccodolo.toml` — project-specific overrides
 
-### Example config
+### Example configuration
 
 ```toml
 agent = "claude"
@@ -169,292 +201,189 @@ AWS_PROFILE = "dev"
 | Field | Strategy |
 |-------|----------|
 | `agent` | Project overrides global |
-| `tools` | Union (deduplicated by name; project version overrides) |
+| `tools` | Union, deduplicated by name. Project version overrides. |
 | `build.root_steps` | Concatenated (global first, then project) |
 | `build.custom_steps` | Concatenated (global first, then project) |
 | `volumes` | Union (project overrides if same container path) |
 | `environment` | Merged (project keys override global) |
-| `passthrough_vars` | Union (deduplicated, preserves order; global entries first) |
+| `passthrough_vars` | Union, deduplicated, order preserved. Global entries first. |
 
 ### Passthrough env vars
 
-`passthrough_vars` lists host environment variable names to forward into the container at run time, reading the value from the shell that invokes `ccodolo`. Use this for secrets (API keys, tokens) that should not be committed to `ccodolo.toml`.
+`passthrough_vars` lists host environment variable names to forward into
+the container at run time. ccodolo reads each value from the shell that
+invokes it. Use this for secrets, for example API keys and tokens. Do not
+commit these values to `ccodolo.toml`.
 
-The host name is reused as the container name. If a listed variable is not set on the host when ccodolo runs, a warning is printed to stderr and the variable is omitted (the container starts normally).
+The host name is reused as the container name. If a listed variable is not
+set on the host, ccodolo prints a warning to stderr and omits the variable.
+The container still starts.
 
-`passthrough_vars` is a top-level key — like `agent` and `tools`, it must appear *before* any `[table]` header (`[environment]`, `[build]`, `[[volumes]]`) or TOML will scope it inside that table.
+`passthrough_vars` is a top-level key. Like `agent` and `tools`, it must
+appear *before* any `[table]` header (`[environment]`, `[build]`,
+`[[volumes]]`), or TOML scopes it inside that table instead.
+
+Some tools use a passed-through variable to authenticate automatically at
+container start — see [Startup hooks](#startup-hooks).
 
 ### Migration from ccodolo.config
 
-If you have an existing `ccodolo.config`, it will be automatically migrated to `ccodolo.toml` on first run. The old file is renamed to `ccodolo.config.bak`.
+If you have an existing `ccodolo.config`, ccodolo migrates it to
+`ccodolo.toml` automatically on first run. ccodolo renames the old file to
+`ccodolo.config.bak`.
 
 ## Dev Tools
 
-Tools are installed via multi-stage `COPY --from` for fast, reproducible builds. Select them during project creation (TUI), via `--tools`, or update later with `--reconfigure`:
+ccodolo installs tools with multi-stage `COPY --from`, for fast and
+reproducible builds. Select tools during project creation in the TUI, with
+`--tools`, or later with `--reconfigure`:
 
 | Tool | Category | Description |
 |------|----------|-------------|
-| `python` | Runtime | Python 3.14 |
-| `nodejs` | Runtime | Node.js 26 |
-| `golang` | Runtime | Go 1.26 |
-| `bun` | Runtime | Bun runtime |
-| `rust` | Runtime | Rust toolchain (includes cargo) |
-| `ruby` | Runtime | Ruby 4.0 |
-| `deno` | Runtime | Deno runtime |
-| `php` | Runtime | PHP 8.5 |
-| `dotnet` | Runtime | .NET SDK 9.0 |
-| `java` | Runtime | Eclipse Temurin JDK 26 |
-| `uv` | Package Manager | Python package manager (astral-sh/uv) |
-| `composer` | Package Manager | Composer PHP package manager |
-| `gradle` | Package Manager | Gradle build tool |
-| `maven` | Package Manager | Apache Maven |
-| `pixi` | Package Manager | Conda/PyPI package manager (prefix-dev/pixi) |
-| `yarn` | Package Manager | Yarn package manager |
-| `pnpm` | Package Manager | pnpm package manager |
-| `skills` | Package Manager | Vercel skill installer |
-| `terraform` | Cloud | HashiCorp Terraform |
-| `aws-cli` | Cloud | AWS CLI v2 |
-| `aws-cdk` | Cloud | AWS CDK |
-| `gcloud` | Cloud | Google Cloud CLI |
-| `azure-cli` | Cloud | Azure CLI |
-| `cloudflare-cli` | Cloud | Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more |
-| `kubectl` | Cloud | Kubernetes CLI |
-| `helm` | Cloud | Helm package manager for Kubernetes |
-| `mysql-client` | Database | MySQL/MariaDB client |
-| `postgresql-client` | Database | PostgreSQL client |
-| `redis-cli` | Database | Redis CLI client |
-| `sqlite` | Database | SQLite database engine |
-| `playwright` | Testing | Playwright browser testing CLI |
+| `bun` | Language Runtimes | Bun runtime |
+| `deno` | Language Runtimes | Deno runtime |
+| `dotnet` | Language Runtimes | .NET SDK |
+| `golang` | Language Runtimes | Go |
+| `java` | Language Runtimes | Java (Eclipse Temurin) JDK |
+| `nodejs` | Language Runtimes | Node.js |
+| `php` | Language Runtimes | PHP |
+| `python` | Language Runtimes | Python |
+| `ruby` | Language Runtimes | Ruby |
+| `rust` | Language Runtimes | Rust toolchain (includes cargo) |
+| `composer` | Package Managers | Composer PHP package manager |
+| `gradle` | Package Managers | Gradle build tool |
+| `maven` | Package Managers | Apache Maven |
+| `pixi` | Package Managers | Conda/PyPI package manager (prefix-dev/pixi) |
+| `pnpm` | Package Managers | pnpm package manager |
+| `skills` | Package Managers | Vercel skill installer |
+| `uv` | Package Managers | Python package manager (astral-sh/uv) |
+| `yarn` | Package Managers | Yarn package manager |
+| `aws-cdk` | Cloud / IaC | AWS CDK |
+| `aws-cli` | Cloud / IaC | AWS CLI v2 |
+| `azure-cli` | Cloud / IaC | Azure CLI |
+| `cloudflare-cli` | Cloud / IaC | Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more |
+| `gcloud` | Cloud / IaC | Google Cloud CLI |
+| `helm` | Cloud / IaC | Helm package manager for Kubernetes |
+| `kubectl` | Cloud / IaC | Kubernetes CLI |
+| `terraform` | Cloud / IaC | HashiCorp Terraform |
+| `terraform-docs` | Cloud / IaC | terraform-docs documentation generator |
+| `tflint` | Cloud / IaC | TFLint Terraform linter |
+| `mysql-client` | Database Clients | MySQL/MariaDB client |
+| `postgresql-client` | Database Clients | PostgreSQL client |
+| `redis-cli` | Database Clients | Redis CLI client |
+| `sqlite` | Database Clients | SQLite database engine |
 | `hugo` | Testing | Hugo static site generator (extended) |
+| `playwright` | Testing | Playwright browser testing CLI with pre-built Chromium |
+| `playwright-cli` | Testing | Playwright agent CLI with SKILLs (@playwright/cli) |
 | `chromium` | Testing | Chromium browser (headless-capable, for browser automation/testing) |
-| `lighthouse` | Testing | Google Lighthouse web page auditing CLI (Chrome flags defaulted for containers at build) |
+| `lighthouse` | Testing | Google Lighthouse web page auditing CLI |
+| `acli` | Utilities | Atlassian CLI |
 | `ffmpeg` | Utilities | FFmpeg audio/video toolkit |
 | `gh` | Utilities | GitHub CLI |
-| `zizmor` | Utilities | GitHub Actions workflow security analyzer |
+| `golangci-lint` | Utilities | Go linters aggregator |
+| `imagemagick` | Utilities | ImageMagick image processing suite |
+| `linear-cli` | Utilities | Linear CLI (unofficial) |
+| `lychee` | Utilities | Lychee link checker |
 | `make` | Utilities | GNU Make |
+| `op` | Utilities | 1Password CLI |
+| `pinact` | Utilities | Pin GitHub Actions versions |
+| `readwise` | Utilities | Readwise Reader CLI |
+| `rumdl` | Utilities | Markdown linter |
 | `ssh` | Utilities | OpenSSH client |
+| `twg` | Utilities | Atlassian Teamwork Graph CLI |
 | `wget` | Utilities | GNU Wget |
 | `youtube-transcript-api` | Utilities | Python library/CLI to fetch YouTube transcripts |
-| `yt-dlp` | Utilities | yt-dlp video downloader (verifies SHA2-256SUMS at build) |
+| `yt-dlp` | Utilities | yt-dlp video downloader |
+| `zizmor` | Utilities | GitHub Actions workflow security analyzer |
 
+Default versions are pinned in `internal/tool/tool.go` and are bumped
+automatically by the updater. See
+[Running the tool updater locally](CLAUDE.md#running-the-tool-updater-locally)
+in `CLAUDE.md`.
 
 ### Tool dependencies
 
-These tools automatically install their dependencies:
+These tools install their dependencies automatically:
 
 - `composer` installs `php`
 - `gradle` installs `java`
 - `maven` installs `java`
-- `yarn` installs `nodejs`
 - `pnpm` installs `nodejs`
 - `skills` installs `nodejs`
+- `yarn` installs `nodejs`
 - `aws-cdk` installs `nodejs`
 - `cloudflare-cli` installs `nodejs`
-- `playwright` installs `nodejs`
-- `lighthouse` installs `nodejs` and `chromium`
+- `tflint` installs `terraform`
 - `hugo` installs `golang`
+- `golangci-lint` installs `golang`
+- `playwright` installs `nodejs`
+- `playwright-cli` installs `playwright`
+- `lighthouse` installs `nodejs` and `chromium`
+- `linear-cli` installs `nodejs`
+- `readwise` installs `nodejs`
 - `youtube-transcript-api` installs `python`
 - `yt-dlp` installs `python`
-- npm-based agents (codex, copilot, opencode) auto-install `nodejs`
+- npm-based agents (`claude`, `codex`, `copilot`, `opencode`) auto-install `nodejs`
 
 ### Base system tools (always installed)
 
-Every container includes these regardless of tool selection:
+Every container includes these, regardless of tool selection:
 
-- **Shell**: zsh (default, with powerline10k), bash
+- **Shell**: zsh (default), bash
 - **Editor**: vim
 - **Git**: git
-- **Utilities**: curl, fzf, jq, less, unzip, sudo, procps
+- **Security**: ca-certificates, gpg
+- **Utilities**: curl, fzf, jq, less, procps, sudo, unzip, xxd, xz-utils
+- **System**: adduser, libatomic1, locales (locale set to `en_US.UTF-8`)
 
-### Custom Tools
+### Startup hooks
 
-You can add your own tools, override built-ins, or remove built-ins entirely
-by creating `~/.ccodolo/custom-tools.json`. The file is read on every
-`ccodolo` invocation. If it does not exist nothing happens. If it exists but
-fails to parse, a warning is printed to stderr and the file is ignored — your
-build still proceeds with the built-in catalog.
+A tool can declare a `startup_hook`: a shell command run once, inside the
+container, before the agent launches — for example, logging a CLI in with a
+token. If the tool also declares `startup_hook_vars`, the hook only runs
+when every listed environment variable is present *and non-empty* in the
+container; otherwise the hook is skipped and ccodolo prints a warning before
+launching:
 
-#### File format
-
-```json
-{
-  "ignore": ["ruby", "php"],
-  "tools": [
-    {
-      "name": "htop",
-      "description": "Interactive process viewer",
-      "instructions": [
-        "RUN apt update && apt install -y --no-install-recommends htop && rm -rf /var/lib/apt/lists/*"
-      ]
-    },
-    {
-      "name": "internal-cli",
-      "description": "Acme internal CLI",
-      "source_image": "registry.acme.example/tools/internal-cli",
-      "default_tag": "1.2.3",
-      "instructions": [
-        "COPY --from=%s /usr/bin/internal-cli /usr/local/bin/internal-cli"
-      ]
-    },
-    {
-      "name": "python",
-      "description": "Python 3.11 (corporate-pinned)",
-      "source_image": "public.ecr.aws/docker/library/python",
-      "default_tag": "3.11",
-      "tag_suffix": "-slim",
-      "instructions": [
-        "COPY --from=%s /usr/local/lib/python{{.Version}} /usr/local/lib/python{{.Version}}",
-        "COPY --from=%s /usr/local/bin/python3* /usr/local/bin/",
-        "COPY --from=%s /usr/local/bin/pip* /usr/local/bin/",
-        "RUN ln -sf /usr/local/bin/python3 /usr/local/bin/python"
-      ]
-    }
-  ]
-}
+```
+Warning: skipping startup hook for "acli": JIRA_TOKEN, JIRA_SITE, JIRA_USER not available in container
 ```
 
-Top-level keys:
+This does not add passthrough, mounts, or any other plumbing — getting the
+variables into the container is still up to `passthrough_vars` or
+`[environment]` (see [Passthrough env vars](#passthrough-env-vars)). A hook
+that exits non-zero logs a one-line warning inside the container and the
+agent still launches; hook output is written to
+`/tmp/ccodolo-startup.log` inside the container.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `tools` | array | Custom tool definitions to add to the catalog. |
-| `ignore` | array of strings | Names of built-in tools to remove from the catalog. |
+`acli` ships with a startup hook that logs in to Jira from `JIRA_TOKEN`,
+`JIRA_SITE`, and `JIRA_USER`:
 
-Tool entry fields (all snake_case in JSON):
+```toml
+passthrough_vars = ["JIRA_TOKEN", "JIRA_SITE", "JIRA_USER"]
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | yes | Unique identifier. If it matches a built-in, your entry overrides the built-in. |
-| `description` | no | Shown in the TUI. |
-| `source_image` | no | Docker image to multi-stage `COPY --from`. Required if any instruction uses `%s`. |
-| `default_tag` | no | Tag for `source_image`, e.g. `3.13`. If `tag_suffix` is set, the suffix is appended automatically at render time — store the suffix-free version here. |
-| `tag_suffix` | no | Suffix appended to `default_tag` and to user-supplied versions when pinning, e.g. `-slim`. |
-| `instructions` | yes | List of Dockerfile lines (`RUN ...`, `COPY --from=%s ...`). Supports the placeholders documented in [Template Placeholders](#template-placeholders) below. |
-| `dependencies` | no | Other tool names that should be auto-installed when this one is selected. |
-| `path_entries` | no | Paths prepended to `PATH` in the final image. |
-| `env_vars` | no | Map of environment variables set in the final image. |
-
-A `category` field is parsed but always discarded — every custom tool is
-shown under the `Custom` category in the TUI, including overrides of
-built-ins.
-
-#### Adding a tool
-
-```json
-{
-  "tools": [
-    {
-      "name": "htop",
-      "description": "Interactive process viewer",
-      "instructions": [
-        "RUN apt update && apt install -y --no-install-recommends htop && rm -rf /var/lib/apt/lists/*"
-      ]
-    }
-  ]
-}
+[tools]
+acli = ""
 ```
 
-#### Overriding a built-in
+Startup hooks only run on the agent launch path (`ccodolo --project ...`);
+they do not run for `--exec` shells attached to an already-running
+container.
 
-A custom entry whose `name` matches a built-in **fully replaces** the
-built-in. The example above pins Python to 3.11 by giving the same name as
-the built-in `python` tool with a different `default_tag` and matching
-`instructions`. An informational message (`custom-tools.json: overriding
-built-in tool "python"`) is printed to stderr so the override is visible in
-build output.
+## Custom Tools
 
-#### Removing built-ins
+You can add tools, override a built-in tool, or remove a built-in tool.
+Create `~/.ccodolo/custom-tools.json`. ccodolo reads this file on every run.
+If the file does not exist, nothing happens. If the file exists but fails to
+parse, ccodolo prints a warning to stderr, ignores the file, and continues
+the build with the built-in catalog.
 
-```json
-{ "ignore": ["ruby", "php"] }
-```
-
-The named tools disappear from the TUI and from the catalog entirely. Asking
-for them with `--tools ruby` produces a clear "unknown tool" error. If a
-removed tool is a dependency of another tool you still want (e.g. ignoring
-`nodejs` while leaving `yarn` selectable), the build will fail at resolve
-time with `tool "yarn" depends on "nodejs": unknown tool "nodejs"`. Either
-also ignore the dependent tool, or supply a custom replacement with the same
-name as the ignored built-in.
-
-#### Pulling from an internal registry
-
-The `internal-cli` example in the file format above shows the multi-stage
-pattern: set `source_image` to your private registry image, set `default_tag`
-to a tag, and use `COPY --from=%s ...` in `instructions`. The `%s` is
-substituted with `source_image:default_tag` at render time.
-
-#### Template Placeholders
-
-Every string in `instructions` is rendered through Go's
-[`text/template`](https://pkg.go.dev/text/template) package before the image
-ref is substituted, so you can parameterise your instructions by the tool's
-resolved tag. The following placeholders are available:
-
-| Placeholder | Expands to | Notes |
-|-------------|------------|-------|
-| `%s` | `source_image:tag` | Classic positional substitution, applied **after** the template pass. Only meaningful inside `COPY --from=%s ...`. Requires `source_image` to be set. |
-| `{{.ImageRef}}` | `source_image:tag` | Same value as `%s` but usable anywhere in a line (e.g. shell interpolation). Requires `source_image` to be set. |
-| `{{.Tag}}` | The full resolved tag, e.g. `3.13-slim` or `1.5.0` | Use when templating version numbers into `RUN` commands that install or download by version. |
-| `{{.Version}}` | `{{.Tag}}` with `tag_suffix` stripped | Use when only the version number is needed, e.g. a path or package-name component. Identical to `{{.Tag}}` if `tag_suffix` is unset. |
-
-The resolved tag is `default_tag` by default, or the user-supplied version
-(passed via the CLI `-v` flag or the TUI version picker), with `tag_suffix`
-appended when present. User overrides flow through these placeholders
-automatically, so a tool whose `instructions` use `{{.Tag}}` lets users pin
-any version without editing the catalog.
-
-The `python` entry in the file format example above uses this pattern: its
-lib-directory path is `{{.Version}}`-templated, so asking for
-`--tools python:3.12` rewrites the `COPY` lines to `/usr/local/lib/python3.12`
-and points `COPY --from=%s` at `python:3.12-slim` — a single version change
-flows through the whole entry.
-
-Another common pattern — templating a CLI version into a RUN line so users
-can override it:
-
-```json
-{
-  "name": "acme-cli",
-  "description": "Acme internal CLI",
-  "default_tag": "4.2.1",
-  "instructions": [
-    "RUN curl -fsSL https://downloads.acme.example/cli/v{{.Tag}}/acme-linux-amd64 -o /usr/local/bin/acme && chmod +x /usr/local/bin/acme"
-  ]
-}
-```
-
-Passing `-v acme-cli=4.3.0` will render
-`https://downloads.acme.example/cli/v4.3.0/...` without any catalog change.
-
-A malformed template surfaces as a clear error at resolve time (e.g.
-`tool "acme-cli": parsing instruction "...": template: instr:1: ...`) — the
-build is aborted rather than silently producing a broken Dockerfile.
-
-#### Constraints
-
-Custom tool instructions can use `RUN` and `COPY --from=image` only. There
-is **no** mechanism to stage local files from your host into the build
-context — anything a custom tool needs must be fetched at build time over the
-network (`curl`, `wget`, `apt`) or pulled from a Docker image via
-`COPY --from=`. If you need a build-time secret or a local file, the
-existing `build.custom_steps` mechanism is the place for that today.
-
-#### Failure modes
-
-| Situation | Behavior |
-|-----------|----------|
-| File missing | Silent no-op. |
-| File present but corrupt JSON | Warning on stderr; the whole file is ignored. |
-| Entry with empty `name` | Warning; that entry is skipped, others still load. |
-| Entry with empty `instructions` | Warning; that entry is skipped, others still load. |
-| Same `name` twice in `tools` | Warning; last definition wins. |
-| `ignore` entry that matches no built-in | Warning; that ignore is dropped. |
-| `ignore` removes a tool that another tool depends on | The dependent build fails at resolve time with a clear error. |
+See [docs/custom-tools.md](docs/custom-tools.md) for the file format,
+template placeholders, and failure modes.
 
 ## Custom Build Steps
 
-Add custom Dockerfile instructions via `build.custom_steps`:
+Add custom Dockerfile instructions with `build.custom_steps`:
 
 ```toml
 [build]
@@ -464,15 +393,37 @@ custom_steps = [
 ]
 ```
 
-Only **RUN**, **COPY**, and **ADD** are allowed. Other instructions (ENV, WORKDIR, etc.) are lost during the single-layer squash.
+Only **RUN**, **COPY**, and **ADD** are allowed. The single-layer squash
+loses other instructions, for example `ENV` and `WORKDIR`.
 
-COPY/ADD source paths resolve relative to the project's `common/` directory.
+COPY/ADD source paths resolve relative to the `common/` directory beside
+the config file that declared the step:
+
+| Step declared in | Sources resolve against |
+|-------------------|--------------------------|
+| `~/.ccodolo/ccodolo.toml` (global) | `~/.ccodolo/common/` |
+| `~/.ccodolo/projects/<name>/ccodolo.toml` (project) | `~/.ccodolo/projects/<name>/common/` |
+
+This applies to both `custom_steps` and `root_steps`. `common/` doubles as
+both the directory ccodolo mounts into the container (see
+[Common Directory](#common-directory)) and the staging area for build-time
+COPY/ADD sources. A source that doesn't exist fails the build with an error
+naming the step and the directory searched.
 
 ### Early root steps
 
-`build.root_steps` injects instructions **earlier** in the build, immediately after the base `apt` setup and before any network-fetching steps (including the `zsh-in-docker` install and all dev-tool installs). Use it when later steps need the setup in place — for example, installing an internal CA certificate or a private apt source before anything tries to `curl` from internal infrastructure.
+`build.root_steps` inserts instructions earlier in the build. They run
+immediately after the base `apt` setup and before any network-fetching
+step, including the `zsh-in-docker` install and all dev-tool installs. Use
+`root_steps` when a later step depends on this setup. For example, an
+internal CA certificate or a private apt source must exist before anything
+runs `curl` against internal infrastructure.
 
-Fetch what you need over the network and verify it — don't try to stage local files into the build. A CA-cert install looks like:
+`root_steps` COPY/ADD sources are staged the same way as `custom_steps`.
+`WORKDIR` is `/` during `root_steps` — it only becomes `/workspace` later,
+before `custom_steps` runs — so COPY/ADD destinations in `root_steps`
+should be absolute paths. A CA-certificate install, fetched over the
+network and verified, looks like this:
 
 ```toml
 [build]
@@ -485,63 +436,87 @@ root_steps = [
 ]
 ```
 
-`openssl x509 -fingerprint` hashes the DER encoding of the certificate itself, not the file bytes — so it matches what your CA publishes and is stable against whitespace or line-ending churn on the server. If the fingerprint doesn't match, `grep -q` fails, `&&` short-circuits, the cert never gets moved into the trust store, and the build aborts — you never silently trust a new root.
+`openssl x509 -fingerprint` hashes the DER encoding of the certificate, not
+the file bytes. This value matches what your CA publishes. It does not
+change with whitespace or line-ending differences on the server. If the
+fingerprint does not match, `grep -q` fails. The `&&` chain stops. The build
+aborts before the certificate reaches the trust store — ccodolo never trusts
+a new root silently.
 
-`root_steps` run as `root`, early. `custom_steps` run later, after tools are installed. Pick `root_steps` only when something downstream (network fetch, apt source, trust store) depends on the setup being in place; otherwise prefer `custom_steps`.
+`root_steps` run as `root`, early in the build. `custom_steps` run later,
+after tools are installed. Pick `root_steps` only when a downstream step,
+for example a network fetch, an apt source, or the trust store, depends on
+this setup. Otherwise, pick `custom_steps`.
 
 ## Project Directories
 
-Each project maintains isolated configuration under `~/.ccodolo/projects/<project-name>/`:
+Each project keeps its configuration under
+`~/.ccodolo/projects/<project-name>/`. ccodolo creates three items on every
+run: `ccodolo.toml`, `commandhistory/`, and `common/`. It also creates the
+configuration directory for the agent you select, for example `.claude/`
+for Claude Code:
 
 ```
 ~/.ccodolo/projects/myapp/
 ├── ccodolo.toml         # Project configuration
 ├── commandhistory/      # Shell history persistence
-├── common/              # ~/project in container (agent-agnostic)
-├── .claude/             # Claude-specific config
-├── .claude.json
-├── .claude-plugin/
-├── .copilot/
-├── .gemini/            # Antigravity settings dir
-├── .codex/
-├── .kiro/
-└── .opencode/
+├── common/               # ~/project in container (agent-agnostic)
+└── .claude/              # Config for the agent you last used
 ```
+
+Directories for other agents appear the first time you use them. For Claude
+Code, ccodolo also creates `.claude.json`. If `.claude-plugin/` or
+`.claude.json` already exist in the project directory, ccodolo mounts them
+into the container.
 
 ### Common Directory
 
-The `common/` directory is mounted to `~/project` in the container for **all agents**. Use it for:
+ccodolo mounts `common/` to `~/project` in the container, for **all**
+agents. Use it for:
 
 - Agent-agnostic scripts and utilities
 - Skills and prompts shared across sessions
-- Documentation or notes you want accessible but not committed to your working directory
+- Documentation or notes you want available in the container but not
+  committed to your working directory
 
 ## Image Architecture
 
-Each image is built dynamically per-project:
+ccodolo builds each image dynamically, per project:
 
-1. **Base layer**: Debian trixie-slim with essential system tools (git, zsh, vim, fzf, etc.)
+1. **Base layer**: Debian trixie-slim with essential system tools (git, zsh, vim, fzf, and more)
 2. **Dev tools**: Multi-stage `COPY --from=<source-image>` for selected tools
 3. **Custom steps**: User-defined RUN/COPY/ADD instructions
 4. **Agent**: Single agent installation
 5. **Squash**: `FROM scratch` + `COPY --from=base / /` for a single-layer image
 
-Images are tagged `ccodolo:<project>-<8-char-sha256>` based on content. Rebuilds are skipped if the image already exists (use `--rebuild` to force).
+ccodolo tags images `ccodolo:<project>-<agent>-<8-hex-sha256>`, based on the
+content of the rendered Dockerfile and the embedded dotfiles. It skips
+rebuilds if the image already exists. Use `--rebuild` to force one.
 
 ## Shell Support
 
 The container supports both **zsh** (default) and **bash**:
 
-- Default shell: zsh with powerline10k theme
+- Default shell: zsh, with oh-my-zsh and the default powerlevel10k theme
 - Switch to bash: `ccodolo --project myapp --exec` then `/bin/bash`
 - Both shells: 100k history, fzf integration, Shift+Enter mapping
 - History files stored in `/commandhistory/` persist across container restarts
 
+The `zsh-in-docker` installer generates `~/.zshrc` at build time. ccodolo's
+own dotfile is copied to `~/.zshrc.local` instead and sourced at the end of
+the generated `~/.zshrc`, so it always applies. Add your own aliases,
+prompt tweaks, or `bindkey`s the same way: a `custom_steps`/`root_steps`
+step that appends to `~/.zshrc.local` picks them up on the next shell.
+
 ## Authentication
 
-Each agent requires authentication within the container. Credentials are stored in agent-specific project directories for isolation.
+Each agent needs authentication inside the container. Credentials live in
+agent-specific project directories, for isolation between agents.
 
-**Important**: Environment variables are NOT passed from host to container. Use `[[volumes]]` in config to mount credential files (e.g., `~/.aws`).
+By default, ccodolo does not forward host environment variables into the
+container. To forward specific variables, for example API keys, add them to
+`passthrough_vars` (see [Passthrough env vars](#passthrough-env-vars)). To
+mount credential files, for example `~/.aws`, use `[[volumes]]` instead.
 
 ### Claude Code
 - **Config directory**: `.claude/`
@@ -563,7 +538,7 @@ Each agent requires authentication within the container. Credentials are stored 
 ### Google Antigravity
 - **Config directory**: `.gemini/` (Antigravity reuses Gemini's settings tree at `~/.gemini/antigravity-cli/settings.json`)
 - **Setup**: Authenticate within the container on first run
-- **Documentation**: https://antigravity.google/docs <!-- TODO: confirm URL before merge -->
+- **Documentation**: https://antigravity.google/docs
 
 ### Kiro
 - **Config directory**: `.kiro/`
@@ -577,36 +552,59 @@ Each agent requires authentication within the container. Credentials are stored 
 
 ## Project Templates
 
-Create a template at `~/.ccodolo/template/` that will be copied to new projects:
+Create a template at `~/.ccodolo/template/`. ccodolo copies it to new
+projects:
 
 ```bash
 mkdir -p ~/.ccodolo/template/common
 cp my-config ~/.ccodolo/template/
 ```
 
-See `template.example/` in this repository for example templates including a Claude Code statusline, auto-commit hook, and PyPI version lookup skill.
+See `template.example/` in this repository for example templates. They
+include a Claude Code status line, an auto-commit hook, and a PyPI version
+lookup skill.
 
-**Note**: User templates go in `~/.ccodolo/template/` (gitignored). The `template.example/` directory in the repo is for reference only.
+**Note**: user templates go in `~/.ccodolo/template/` (gitignored). The
+`template.example/` directory in the repository is for reference only.
 
 ## Troubleshooting
 
 ### Terminal size is wrong inside the container
 
-**Symptom**: the agent's UI is stuck at 80x24 instead of filling the window, and does not react when you resize. The keyboard still works.
+**Symptom**: the agent's UI stays at 80x24 instead of the full window size,
+and does not change when you resize. The keyboard still works.
 
-**Cause**: Docker sizes the container's pseudo-terminal from *its own stdout*, and only follows window resizes when that descriptor is a real terminal. If something between your shell and `ccodolo` replaces stdout with a pipe, Docker reads no size, the pty stays at the daemon default, and it never resizes.
+**Cause**: Docker sizes the container's pseudo-terminal from *its own
+stdout*, and follows window resizes only when that descriptor is a real
+terminal. If something between your shell and `ccodolo` replaces stdout
+with a pipe, Docker reads no size. The pty stays at the daemon default and
+never resizes.
 
-The usual culprit is the 1Password CLI. `op run` masks secrets by default, and to redact them it has to read the child's output — so it hands the child pipes for stdout and stderr. stdin stays a real terminal, which is why only the size is wrong.
+The usual cause is the 1Password CLI. `op run` masks secrets by default. To
+redact them, it reads the child process's output, so it gives the child
+pipes for stdout and stderr instead of a terminal. stdin stays a real
+terminal. This is why only the size is wrong.
 
-**Fix**: turn masking off, which leaves all three streams attached to the terminal:
+**Fix**: turn masking off, which leaves all three streams attached to the
+terminal:
 
 ```bash
 op run --no-masking -- ccodolo --project myapp
 ```
 
-The trade-off is that secrets printed inside the container are no longer redacted from your terminal scrollback. In practice masking buys little here: with a TTY, Docker merges the container's stdout and stderr into one raw stream of ANSI escapes and partial redraws, and `op`'s substring matching only catches a secret whose bytes happen to land contiguously in a single read. Keep masking enabled for non-interactive, line-oriented uses (`op run -- ./deploy.sh | tee build.log`), where it works reliably.
+With masking off, secrets that print inside the container are not redacted
+in your terminal history.
 
-Any other wrapper that pipes stdout — `ccodolo ... | tee`, some CI runners — causes the same symptom for the same reason.
+Masking gives little protection in this case. With a TTY, Docker merges the
+container's stdout and stderr into one raw stream of ANSI escapes and
+partial redraws. `op`'s substring match only catches a secret when its
+bytes land together in a single read.
+
+Keep masking on for non-interactive, line-based commands, for example
+`op run -- ./deploy.sh | tee build.log`. Masking works reliably there.
+
+Any other wrapper that pipes stdout, for example `ccodolo ... | tee` or
+some CI runners, causes the same symptom for the same reason.
 
 ## Migrating from the Shell Script
 
@@ -614,9 +612,12 @@ If you previously used the shell script version of CCoDoLo:
 
 1. Install the Go binary (see [Install](#install) above)
 2. Remove the old shell script from your PATH
-3. Run `ccodolo --project <name> --reconfigure` for each existing project to verify and update your configuration
+3. Run `ccodolo --project <name> --reconfigure` for each existing project,
+   to verify and update your configuration
 
-Existing project directories under `~/.ccodolo/projects/` are compatible. The `ccodolo.config` shell format is automatically migrated to `ccodolo.toml` on first run.
+Existing project directories under `~/.ccodolo/projects/` stay compatible.
+ccodolo migrates the `ccodolo.config` shell format to `ccodolo.toml`
+automatically on first run.
 
 ## License
 

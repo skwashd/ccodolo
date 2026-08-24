@@ -171,6 +171,70 @@ func TestRenderDockerfileWithRootSteps(t *testing.T) {
 	}
 }
 
+func TestRenderDockerfileZshrcLocalHook(t *testing.T) {
+	cfg := &config.Config{Agent: "claude"}
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The embedded dotfile is named .zshrc.local (matching its container
+	// destination) precisely so it copies alongside .bashrc/.inputrc in one
+	// COPY — it lands as a sidecar, not the live zsh config location, since
+	// the zsh-in-docker installer truncates ~/.zshrc and would silently
+	// lose it if we wrote there directly.
+	if !strings.Contains(result, "COPY dotfiles/.bashrc dotfiles/.inputrc dotfiles/.zshrc.local /home/coder/") {
+		t.Error("should copy .bashrc, .inputrc, and .zshrc.local to /home/coder/ in one COPY")
+	}
+
+	zshInDockerIdx := strings.Index(result, "zsh-in-docker.sh")
+	sourceHookIdx := strings.Index(result, `[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"`)
+	if zshInDockerIdx == -1 {
+		t.Fatal("zsh-in-docker install not found in rendered output")
+	}
+	if sourceHookIdx == -1 {
+		t.Fatal(".zshrc.local source hook not found in rendered output")
+	}
+	if sourceHookIdx <= zshInDockerIdx {
+		t.Error(".zshrc.local should be sourced after the zsh-in-docker install")
+	}
+
+	// The build-time-baked TERM export must be stripped so a forwarded
+	// TERM from the host survives.
+	if !strings.Contains(result, `sed -i '/export TERM=xterm/d' "$HOME/.zshrc"`) {
+		t.Error("should strip the baked 'export TERM=xterm' line from the generated .zshrc")
+	}
+}
+
+func TestRenderDockerfileLangEnv(t *testing.T) {
+	cfg := &config.Config{Agent: "claude"}
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	scratchIdx := strings.Index(result, "FROM scratch")
+	langIdx := strings.Index(result, "ENV LANG=en_US.UTF-8")
+	if scratchIdx == -1 {
+		t.Fatal("FROM scratch not found in rendered output")
+	}
+	if langIdx == -1 {
+		t.Fatal("ENV LANG=en_US.UTF-8 not found in rendered output")
+	}
+	if langIdx <= scratchIdx {
+		t.Error("ENV LANG should be declared after FROM scratch (ENV is metadata-only and lost in the squash)")
+	}
+	if !strings.Contains(result, "ENV LANGUAGE=en_US:en") {
+		t.Error("should declare ENV LANGUAGE=en_US:en")
+	}
+	// LC_ALL is deliberately not set — it would override every LC_*
+	// category, and the generated .zshrc already exports it for
+	// interactive shells.
+	if strings.Contains(result, "ENV LC_ALL") {
+		t.Error("should NOT declare ENV LC_ALL")
+	}
+}
+
 func TestRenderDockerfileInvalidAgent(t *testing.T) {
 	cfg := &config.Config{Agent: "invalid"}
 	_, err := RenderDockerfile(cfg)
@@ -386,5 +450,98 @@ func TestRenderDockerfileAllAgents(t *testing.T) {
 				t.Errorf("missing ENTRYPOINT for agent %s", a)
 			}
 		})
+	}
+}
+
+func TestRenderDockerfileStartupHookWrapsEntrypoint(t *testing.T) {
+	cfg := &config.Config{
+		Agent: "claude",
+		Tools: map[string]string{"acli": ""},
+	}
+
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result, `ENTRYPOINT ["/usr/local/bin/ccodolo-startup","claude","--dangerously-skip-permissions"]`) {
+		t.Errorf("expected entrypoint wrapped with the startup-hook runner, got Dockerfile:\n%s", result)
+	}
+	if !strings.Contains(result, "# Startup hook: acli") {
+		t.Error("expected a startup hook install step for acli")
+	}
+	if !strings.Contains(result, "for __v in JIRA_TOKEN JIRA_SITE JIRA_USER; do") {
+		t.Error("expected the acli hook's env var guard loop")
+	}
+	if !strings.Contains(result, `echo "$JIRA_TOKEN" | acli jira auth login`) {
+		t.Error("expected the acli hook command")
+	}
+	if !strings.Contains(result, "> /usr/local/bin/ccodolo-startup") {
+		t.Error("expected the startup-hook runner script to be installed")
+	}
+}
+
+func TestRenderDockerfileNoHooksEntrypointUnchanged(t *testing.T) {
+	// No selected tool declares a StartupHook, so the entrypoint and image
+	// content must render exactly as they did before this feature existed —
+	// no forced rebuild of existing project images.
+	cfg := &config.Config{
+		Agent: "claude",
+		Tools: map[string]string{"python": ""},
+	}
+
+	result, err := RenderDockerfile(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result, `ENTRYPOINT ["claude","--dangerously-skip-permissions"]`) {
+		t.Errorf("expected unwrapped entrypoint when no tool has a startup hook, got Dockerfile:\n%s", result)
+	}
+	if strings.Contains(result, "ccodolo-startup") {
+		t.Error("did not expect any reference to the startup-hook runner when no hooks are selected")
+	}
+	if strings.Contains(result, "/etc/ccodolo/startup.d") {
+		t.Error("did not expect a startup hook directory when no hooks are selected")
+	}
+}
+
+func TestRenderStartupHookStepNoVarsNoGuard(t *testing.T) {
+	rt := tool.ResolvedTool{
+		Tool: tool.Tool{
+			Name:        "unconditional",
+			StartupHook: "echo hello",
+		},
+		Tag: "1.0",
+	}
+
+	out := renderStartupHookStep(0, rt)
+
+	if strings.Contains(out, "for __v in") {
+		t.Errorf("expected no guard loop when StartupHookVars is empty, got:\n%s", out)
+	}
+	if !strings.Contains(out, "'echo hello'") {
+		t.Errorf("expected the hook command to be written verbatim, got:\n%s", out)
+	}
+}
+
+func TestRenderStartupHookStepEscapesSingleQuotes(t *testing.T) {
+	rt := tool.ResolvedTool{
+		Tool: tool.Tool{
+			Name:        "quoter",
+			StartupHook: `echo "it's a test" && printf '%s\n' "done"`,
+		},
+		Tag: "1.0",
+	}
+
+	out := renderStartupHookStep(0, rt)
+
+	if !strings.Contains(out, `it'\''s a test`) {
+		t.Errorf("expected embedded single quote to be escaped as '\\'', got:\n%s", out)
+	}
+	// The hook's own %s must survive untouched — it must never be run
+	// through renderInstructions' %s -> ImageRef substitution pass.
+	if !strings.Contains(out, `printf '\''%s\n'\'' "done"`) {
+		t.Errorf("expected the hook's own printf format specifier to survive untouched, got:\n%s", out)
 	}
 }
