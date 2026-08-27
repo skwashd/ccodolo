@@ -684,6 +684,32 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
+		Name:         "mermaid-cli",
+		Category:     "utils",
+		Description:  "Mermaid diagram renderer CLI (mmdc)",
+		DefaultTag:   "11.16.0",
+		Dependencies: []string{"nodejs", "chromium"},
+		Instructions: []string{
+			// Point puppeteer at the apt-installed chromium tool instead of
+			// downloading its own, then wrap mmdc to default to a puppeteer
+			// config with --no-sandbox: like lighthouse, this container gets
+			// no extra capabilities (by design), so Chromium's sandbox can't
+			// initialize otherwise. Only injects the default when the caller
+			// hasn't already passed -p/--puppeteerConfigFile themselves.
+			`RUN PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium npm install -g @mermaid-js/mermaid-cli@{{.Tag}} \` + "\n" +
+				`  && mv /usr/local/bin/mmdc /usr/local/bin/mmdc-bin \` + "\n" +
+				`  && mkdir -p /etc/mermaid-cli \` + "\n" +
+				`  && printf '{"executablePath":"/usr/bin/chromium","args":["--no-sandbox","--disable-dev-shm-usage"]}' > /etc/mermaid-cli/puppeteer-config.json \` + "\n" +
+				`  && printf '#!/bin/sh\nfor a in "$@"; do\n  case "$a" in\n    -p|--puppeteerConfigFile|--puppeteerConfigFile=*) exec mmdc-bin "$@" ;;\n  esac\ndone\nexec mmdc-bin -p /etc/mermaid-cli/puppeteer-config.json "$@"\n' > /usr/local/bin/mmdc \` + "\n" +
+				`  && chmod +x /usr/local/bin/mmdc`,
+		},
+		EnvVars: map[string]string{
+			"PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
+		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "@mermaid-js/mermaid-cli",
+	},
+	{
 		Name:        "op",
 		Category:    "utils",
 		Description: "1Password CLI",
