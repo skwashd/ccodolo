@@ -285,6 +285,7 @@ reproducible builds. Select tools during project creation in the TUI, with
 | `linear-cli` | Utilities | Linear CLI (unofficial) |
 | `lychee` | Utilities | Lychee link checker |
 | `make` | Utilities | GNU Make |
+| `mermaid-cli` | Utilities | Mermaid diagram renderer CLI (mmdc) |
 | `op` | Utilities | 1Password CLI |
 | `pinact` | Utilities | Pin GitHub Actions versions |
 | `readwise` | Utilities | Readwise Reader CLI |
@@ -319,6 +320,7 @@ These tools install their dependencies automatically:
 - `playwright` installs `nodejs`
 - `playwright-cli` installs `playwright`
 - `lighthouse` installs `nodejs` and `chromium`
+- `mermaid-cli` installs `nodejs` and `chromium`
 - `linear-cli` installs `nodejs`
 - `readwise` installs `nodejs`
 - `youtube-transcript-api` installs `python`
