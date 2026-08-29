@@ -111,7 +111,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Deno runtime",
 		SourceImage: "denoland/deno",
-		DefaultTag:  "2.9.5",
+		DefaultTag:  "2.9.6",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/deno /usr/local/bin/deno",
 		},
