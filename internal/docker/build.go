@@ -14,17 +14,30 @@ import (
 	"github.com/skwashd/ccodolo/internal/fsutil"
 )
 
-// ImageExists checks if a Docker image with the given tag exists locally.
-func ImageExists(tag string) bool {
-	cmd := exec.Command("docker", "image", "inspect", tag)
+// ImageExists checks if an image with the given tag exists locally.
+func ImageExists(rt Runtime, tag string) bool {
+	cmd := exec.Command(rt.Binary(), "image", "inspect", tag)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run() == nil
 }
 
-// Build builds a Docker image from the given config.
+// buildArgs returns the argv after the binary name for building imageTag.
+// The Dockerfile sits at ./Dockerfile in the build context (cmd.Dir), so no
+// -f flag is needed. Both backends accept identical tokens today; rt is the
+// single place a future divergence lands.
+func buildArgs(_ Runtime, agentName, tag string) []string {
+	return []string{
+		"build",
+		"--progress=plain",
+		"--build-arg", "CCODOLO_AGENT=" + agentName,
+		"-t", tag, ".",
+	}
+}
+
+// Build builds a container image from the given config.
 // It returns the image tag.
-func Build(cfg *config.Config, project, projectPath string, force bool) (string, error) {
+func Build(rt Runtime, cfg *config.Config, project, projectPath string, force bool) (string, error) {
 	dockerfile, err := RenderDockerfile(cfg)
 	if err != nil {
 		return "", fmt.Errorf("rendering Dockerfile: %w", err)
@@ -40,7 +53,7 @@ func Build(cfg *config.Config, project, projectPath string, force bool) (string,
 
 	tag := ImageTag(project, cfg.Agent, dockerfile, staged)
 
-	if !force && ImageExists(tag) {
+	if !force && ImageExists(rt, tag) {
 		fmt.Fprintf(os.Stderr, "Image %s already exists, skipping build (use --rebuild to force)\n", tag)
 		return tag, nil
 	}
@@ -70,17 +83,17 @@ func Build(cfg *config.Config, project, projectPath string, force bool) (string,
 		return "", fmt.Errorf("staging build context files: %w", err)
 	}
 
-	// Run docker build.
+	// Run the build.
 	fmt.Fprintf(os.Stderr, "Building image %s...\n", tag)
-	cmd := exec.Command("docker", "build",
-		"--progress=plain",
-		"--build-arg", "CCODOLO_AGENT="+cfg.Agent,
-		"-t", tag, ".")
+	cmd := exec.Command(rt.Binary(), buildArgs(rt, cfg.Agent, tag)...)
 	cmd.Dir = tmpDir
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
+		if rt == RuntimeApple {
+			return "", fmt.Errorf("container build failed (if the service is not running, try `container system start`): %w", err)
+		}
 		return "", fmt.Errorf("docker build failed: %w", err)
 	}
 

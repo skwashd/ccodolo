@@ -15,6 +15,8 @@ import (
 // Config represents the ccodolo.toml configuration.
 type Config struct {
 	Agent           string            `toml:"agent"`
+	Runtime         string            `toml:"runtime,omitempty"`
+	Memory          string            `toml:"memory,omitempty"`
 	Tools           map[string]string `toml:"tools"`
 	Build           BuildConfig       `toml:"build"`
 	Volumes         []Volume          `toml:"volumes"`
@@ -24,6 +26,36 @@ type Config struct {
 
 // envVarNameRegexp matches a valid POSIX environment variable name.
 var envVarNameRegexp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// memoryRegexp matches a memory size in the subset of formats accepted by
+// both docker and Apple's container CLI: a number with a k, m, or g suffix
+// (optionally followed by b), e.g. "4g", "4gb", "512M".
+var memoryRegexp = regexp.MustCompile(`^[0-9]+[kKmMgG][bB]?$`)
+
+// Runtime values accepted by the top-level runtime key. An empty value
+// means RuntimeDocker.
+const (
+	// RuntimeDocker is the default container backend.
+	RuntimeDocker = "docker"
+	// RuntimeApple is Apple's native container CLI (github.com/apple/container).
+	// Experimental; requires macOS 26 on Apple Silicon.
+	RuntimeApple = "apple"
+)
+
+// AllRuntimeNames returns the accepted runtime names.
+func AllRuntimeNames() []string {
+	return []string{RuntimeDocker, RuntimeApple}
+}
+
+// ValidRuntime returns true if the runtime name is recognized.
+func ValidRuntime(name string) bool {
+	for _, r := range AllRuntimeNames() {
+		if r == name {
+			return true
+		}
+	}
+	return false
+}
 
 // ToolEntry represents a tool selection used internally.
 type ToolEntry struct {
@@ -237,6 +269,8 @@ func Save(cfg *Config, path string) error {
 
 // Merge combines global and project configs according to the merge semantics:
 // - agent: project overrides global
+// - runtime: project overrides global
+// - memory: project overrides global
 // - tools: union (deduplicated by name; project version overrides)
 // - build.custom_steps: concatenated (global first, then project)
 // - build.root_steps: concatenated (global first, then project)
@@ -250,6 +284,18 @@ func Merge(global, project *Config) *Config {
 	result.Agent = global.Agent
 	if project.Agent != "" {
 		result.Agent = project.Agent
+	}
+
+	// Runtime: project overrides global.
+	result.Runtime = global.Runtime
+	if project.Runtime != "" {
+		result.Runtime = project.Runtime
+	}
+
+	// Memory: project overrides global.
+	result.Memory = global.Memory
+	if project.Memory != "" {
+		result.Memory = project.Memory
 	}
 
 	// Tools: union; project version overrides global.
@@ -333,6 +379,14 @@ func Merge(global, project *Config) *Config {
 func Validate(cfg *Config) error {
 	if cfg.Agent != "" && !agent.Valid(cfg.Agent) {
 		return fmt.Errorf("invalid agent %q, must be one of: %v", cfg.Agent, agent.AllNames())
+	}
+
+	if cfg.Runtime != "" && !ValidRuntime(cfg.Runtime) {
+		return fmt.Errorf("invalid runtime %q, must be one of: %v", cfg.Runtime, AllRuntimeNames())
+	}
+
+	if cfg.Memory != "" && !memoryRegexp.MatchString(cfg.Memory) {
+		return fmt.Errorf(`invalid memory %q: must be a number with a k, m, or g suffix, e.g. "4g"`, cfg.Memory)
 	}
 
 	for name := range cfg.Tools {

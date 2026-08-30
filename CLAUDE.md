@@ -101,6 +101,7 @@ golangci-lint run ./...
 ### Architecture Notes
 
 - The `ccodolo` binary is a cross-platform Go CLI using cobra for flags and charmbracelet/huh for the interactive TUI
+- `internal/docker` supports two container backends via the `Runtime` enum: `docker` (default) and `apple` (experimental, Apple's `container` CLI on macOS 26/Apple Silicon, opted into via `runtime = "apple"` in ccodolo.toml). The apple path cannot run in CI, so backend argv construction must stay in pure, unit-tested functions (`buildArgs`, `runArgs`, `parse*ContainerList`, `matchContainer`)
 - Each image contains exactly one agent — no start-agent dispatch script
 - Dockerfile is generated dynamically from `embedded/Dockerfile.tmpl` using `text/template`
 - Config, merge semantics, and `ccodolo.config` migration: see [README → Configuration](README.md#configuration); code lives in `internal/config/`

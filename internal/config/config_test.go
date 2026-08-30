@@ -13,6 +13,7 @@ func TestLoadFileParsesToml(t *testing.T) {
 
 	content := `
 agent = "claude"
+runtime = "apple"
 passthrough_vars = ["GITHUB_TOKEN", "AWS_SECRET_ACCESS_KEY"]
 
 [tools]
@@ -44,6 +45,9 @@ AWS_PROFILE = "dev"
 
 	if cfg.Agent != "claude" {
 		t.Errorf("expected agent 'claude', got %q", cfg.Agent)
+	}
+	if cfg.Runtime != "apple" {
+		t.Errorf("expected runtime 'apple', got %q", cfg.Runtime)
 	}
 	if len(cfg.Tools) != 2 {
 		t.Fatalf("expected 2 tools, got %d", len(cfg.Tools))
@@ -156,6 +160,38 @@ func TestMergeAgent(t *testing.T) {
 	result2 := Merge(global, project2)
 	if result2.Agent != "claude" {
 		t.Errorf("expected global agent 'claude', got %q", result2.Agent)
+	}
+}
+
+func TestMergeRuntime(t *testing.T) {
+	global := &Config{Runtime: RuntimeDocker}
+	project := &Config{Runtime: RuntimeApple}
+	result := Merge(global, project)
+	if result.Runtime != RuntimeApple {
+		t.Errorf("expected project runtime 'apple', got %q", result.Runtime)
+	}
+
+	// Empty project runtime should use global.
+	project2 := &Config{}
+	result2 := Merge(global, project2)
+	if result2.Runtime != RuntimeDocker {
+		t.Errorf("expected global runtime 'docker', got %q", result2.Runtime)
+	}
+}
+
+func TestMergeMemory(t *testing.T) {
+	global := &Config{Memory: "4g"}
+	project := &Config{Memory: "8g"}
+	result := Merge(global, project)
+	if result.Memory != "8g" {
+		t.Errorf("expected project memory '8g', got %q", result.Memory)
+	}
+
+	// Empty project memory should use global.
+	project2 := &Config{}
+	result2 := Merge(global, project2)
+	if result2.Memory != "4g" {
+		t.Errorf("expected global memory '4g', got %q", result2.Memory)
 	}
 }
 
@@ -363,6 +399,54 @@ func TestValidate(t *testing.T) {
 		}
 	})
 
+	t.Run("valid runtime apple", func(t *testing.T) {
+		cfg := &Config{Agent: "claude", Runtime: RuntimeApple}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("empty runtime is valid", func(t *testing.T) {
+		cfg := &Config{Agent: "claude"}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("invalid runtime", func(t *testing.T) {
+		cfg := &Config{Agent: "claude", Runtime: "podman"}
+		err := Validate(cfg)
+		if err == nil {
+			t.Fatal("expected error for invalid runtime")
+		}
+		if !strings.Contains(err.Error(), "invalid runtime") {
+			t.Errorf("expected invalid runtime error message, got %q", err.Error())
+		}
+	})
+
+	t.Run("valid memory", func(t *testing.T) {
+		for _, m := range []string{"4g", "4G", "4gb", "8192m", "512M", "1048576k"} {
+			cfg := &Config{Agent: "claude", Memory: m}
+			if err := Validate(cfg); err != nil {
+				t.Errorf("memory %q: unexpected error: %v", m, err)
+			}
+		}
+	})
+
+	t.Run("invalid memory", func(t *testing.T) {
+		for _, m := range []string{"4", "four gigs", "g4", "4t", "-4g", "4 g", "4g "} {
+			cfg := &Config{Agent: "claude", Memory: m}
+			err := Validate(cfg)
+			if err == nil {
+				t.Errorf("memory %q: expected error", m)
+				continue
+			}
+			if !strings.Contains(err.Error(), "invalid memory") {
+				t.Errorf("memory %q: expected invalid memory error message, got %q", m, err.Error())
+			}
+		}
+	})
+
 	t.Run("invalid tool", func(t *testing.T) {
 		cfg := &Config{
 			Agent: "claude",
@@ -512,7 +596,8 @@ func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(dir, "ccodolo.toml")
 
 	cfg := &Config{
-		Agent: "antigravity",
+		Agent:   "antigravity",
+		Runtime: RuntimeApple,
 		Tools: map[string]string{
 			"python": "",
 			"uv":     "0.5",
@@ -536,11 +621,32 @@ func TestSaveAndLoad(t *testing.T) {
 	if loaded.Agent != cfg.Agent {
 		t.Errorf("expected agent %q, got %q", cfg.Agent, loaded.Agent)
 	}
+	if loaded.Runtime != cfg.Runtime {
+		t.Errorf("expected runtime %q, got %q", cfg.Runtime, loaded.Runtime)
+	}
 	if len(loaded.Tools) != len(cfg.Tools) {
 		t.Errorf("expected %d tools, got %d", len(cfg.Tools), len(loaded.Tools))
 	}
 	if loaded.Environment["FOO"] != "bar" {
 		t.Errorf("expected FOO='bar', got %q", loaded.Environment["FOO"])
+	}
+}
+
+func TestSaveOmitsEmptyRuntime(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ccodolo.toml")
+
+	cfg := &Config{Agent: "claude"}
+	if err := Save(cfg, path); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading saved config: %v", err)
+	}
+	if strings.Contains(string(data), "runtime") {
+		t.Errorf("saved config should omit empty runtime, got:\n%s", string(data))
 	}
 }
 

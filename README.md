@@ -30,6 +30,8 @@ components of the environment.
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) installed and running
+- Experimental: on macOS 26 with Apple Silicon, [Apple's container CLI](https://github.com/apple/container)
+  can replace Docker — see [Container runtime](#container-runtime-experimental)
 
 ## Quickstart
 
@@ -171,6 +173,8 @@ CCoDoLo uses TOML configuration with two levels:
 
 ```toml
 agent = "claude"
+# runtime = "apple"  # experimental Apple container backend; default is "docker"
+# memory = "8g"      # container memory limit; unset means no limit (docker) or 4g (apple)
 passthrough_vars = [
     "GITHUB_TOKEN",
     "AWS_SECRET_ACCESS_KEY",
@@ -208,6 +212,8 @@ AWS_PROFILE = "dev"
 | Field | Strategy |
 |-------|----------|
 | `agent` | Project overrides global |
+| `runtime` | Project overrides global |
+| `memory` | Project overrides global |
 | `tools` | Union, deduplicated by name. Project version overrides. |
 | `build.root_steps` | Concatenated (global first, then project) |
 | `build.custom_steps` | Concatenated (global first, then project) |
@@ -232,6 +238,62 @@ appear *before* any `[table]` header (`[environment]`, `[build]`,
 
 Some tools use a passed-through variable to authenticate automatically at
 container start — see [Startup hooks](#startup-hooks).
+
+### Container memory
+
+`memory` sets the container's memory limit, passed to the backend as
+`--memory`:
+
+```toml
+memory = "8g"
+```
+
+The value is a number with a `k`, `m`, or `g` suffix (a trailing `b` is
+also accepted, e.g. `"8gb"`).
+
+When `memory` is unset, the behaviour depends on the backend. Docker
+containers share host memory with no limit. The Apple runtime boots each
+container in its own VM, whose CLI default of 1GB is too small for an
+agent plus its toolchain — ccodolo defaults it to `4g` instead.
+
+`memory` is a top-level key. Like `agent` and `passthrough_vars`, it must
+appear *before* any `[table]` header, or TOML scopes it inside that table.
+
+### Container runtime (experimental)
+
+`runtime` selects the container backend: `"docker"` (the default) or
+`"apple"` for [Apple's native container CLI](https://github.com/apple/container),
+which runs each container in its own lightweight VM for stronger isolation
+and a smaller memory footprint than Docker Desktop.
+
+```toml
+runtime = "apple"
+```
+
+The Apple runtime requires macOS 26 on Apple Silicon, with the container
+CLI installed and its service running:
+
+```bash
+brew install --cask container
+container system start
+```
+
+If the host cannot run the Apple runtime, ccodolo refuses to launch with an
+error explaining what is missing. To go back to Docker, remove the
+`runtime` key (or set it to `"docker"`).
+
+Each container VM gets 4GB of memory by default — see
+[Container memory](#container-memory) to change it.
+
+`runtime` is a top-level key. Like `agent` and `passthrough_vars`, it must
+appear *before* any `[table]` header, or TOML scopes it inside that table.
+A `runtime` set in the global config is copied into each new project's
+`ccodolo.toml` when the project is created, the same as `agent`.
+
+This feature is experimental and has no CI coverage (the Apple runtime
+cannot run on CI hosts). Single-file mounts (such as claude's
+`.claude.json`) and `readonly` volumes are the areas most likely to differ
+from Docker — please report issues.
 
 ### Migration from ccodolo.config
 
@@ -564,6 +626,10 @@ ccodolo tags images `ccodolo:<project>-<agent>-<8-hex-sha256>`, based on the
 rendered Dockerfile and on the paths and contents of the embedded dotfiles
 and startup scripts. It skips rebuilds if the image already exists. Use
 `--rebuild` to force one.
+
+With [`runtime = "apple"`](#container-runtime-experimental) the identical
+Dockerfile builds via the BuildKit builder VM that Apple's container CLI
+manages, so the multi-stage layout and squash work the same way.
 
 ## Shell Support
 
