@@ -7,8 +7,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/skwashd/ccodolo/embedded"
 	"github.com/skwashd/ccodolo/internal/config"
 )
+
+func TestWriteEmbeddedTreeStagesScripts(t *testing.T) {
+	tmp := t.TempDir()
+	if err := writeEmbeddedTree(embedded.Scripts, "scripts", tmp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmp, "scripts", "git-hygiene.sh"))
+	if err != nil {
+		t.Fatalf("expected git-hygiene.sh in the build context: %v", err)
+	}
+	if !strings.Contains(string(data), "git worktree repair") {
+		t.Error("expected the staged git-hygiene.sh to contain the repair step")
+	}
+}
 
 // setupCommonDir creates <projectPath>/common with the given fixture files
 // (relative paths) and returns projectPath.

@@ -27,6 +27,7 @@ ccodolo/
 ├── main.go                          # Entrypoint → cmd.Execute()
 ├── cmd/
 │   ├── root.go                      # cobra root command, flags, main run() logic, TUI
+│   ├── repair.go                    # repair-worktrees subcommand (host-side git worktree repair)
 │   └── version.go                   # version subcommand
 ├── internal/
 │   ├── agent/
@@ -76,7 +77,8 @@ ccodolo/
 ├── embedded/
 │   ├── embed.go                     # go:embed directives
 │   ├── Dockerfile.tmpl              # Templatized Dockerfile
-│   └── dotfiles/                    # Shell configurations (.bashrc, .zshrc.local, .inputrc)
+│   ├── dotfiles/                    # Shell configurations (.bashrc, .zshrc.local, .inputrc)
+│   └── scripts/                     # Container startup scripts (git worktree hygiene)
 ├── docs/
 │   └── custom-tools.md              # Custom tool catalog reference (custom-tools.json)
 └── template.example/                # Example project templates

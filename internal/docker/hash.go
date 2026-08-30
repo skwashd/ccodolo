@@ -12,27 +12,17 @@ import (
 )
 
 // ImageTag computes the image tag for a project from the rendered
-// Dockerfile, the embedded dotfile contents, and the resolved build-context
-// staged files (custom_steps/root_steps COPY/ADD sources). Hashing the
-// staged files keeps the tag in sync with them — otherwise editing a
-// staged file's contents or mode, without touching the Dockerfile, would
-// leave the cached image stale.
+// Dockerfile, the embedded dotfile and startup script contents, and the
+// resolved build-context staged files (custom_steps/root_steps COPY/ADD
+// sources). Hashing these keeps the tag in sync with them — otherwise
+// editing an embedded or staged file's contents, without touching the
+// Dockerfile, would leave the cached image stale.
 func ImageTag(project, agentName, dockerfile string, staged []stagedFile) string {
 	h := sha256.New()
 	h.Write([]byte(dockerfile))
 
-	// Include embedded dotfile contents in the hash.
-	_ = fs.WalkDir(embedded.Dotfiles, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		data, err := embedded.Dotfiles.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		h.Write(data)
-		return nil
-	})
+	hashEmbeddedFS(h, embedded.Dotfiles)
+	hashEmbeddedFS(h, embedded.Scripts)
 
 	// Include staged build-context files (relative path, mode, contents),
 	// in the order resolveBuildContextFiles already sorted them for
@@ -43,6 +33,30 @@ func ImageTag(project, agentName, dockerfile string, staged []stagedFile) string
 
 	hash := fmt.Sprintf("%x", h.Sum(nil))[:8]
 	return fmt.Sprintf("ccodolo:%s-%s-%s", project, agentName, hash)
+}
+
+// hashEmbeddedFS writes the path and contents of every file in fsys into w,
+// in WalkDir's deterministic lexical order. The path is part of the digest
+// for the same reason it is in hashStagedFile: without it, renaming an
+// embedded file — or moving content between the two trees, which are hashed
+// back to back into one stream — leaves the tag unchanged and ImageExists
+// reuses the stale image. Mode is not hashed: embed.FS reports every file as
+// 0444, so it carries no information.
+func hashEmbeddedFS(w io.Writer, fsys fs.FS) {
+	_ = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+		// Length-prefixed so no combination of path and contents can be
+		// re-split into a different one with the same digest.
+		_, _ = fmt.Fprintf(w, "%d:%s%d:", len(path), path, len(data))
+		_, _ = w.Write(data)
+		return nil
+	})
 }
 
 // hashStagedFile writes a staged file's relative path, mode, and contents

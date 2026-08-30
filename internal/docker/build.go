@@ -57,26 +57,12 @@ func Build(cfg *config.Config, project, projectPath string, force bool) (string,
 		return "", fmt.Errorf("writing Dockerfile: %w", err)
 	}
 
-	// Write dotfiles.
-	dotfilesDir := filepath.Join(tmpDir, "dotfiles")
-	if err := os.MkdirAll(dotfilesDir, 0o755); err != nil {
-		return "", fmt.Errorf("creating dotfiles dir: %w", err)
-	}
-	err = fs.WalkDir(embedded.Dotfiles, "dotfiles", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		data, readErr := embedded.Dotfiles.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
-		// path is "dotfiles/.bashrc" etc. — strip the leading "dotfiles/" to get the filename.
-		relPath := strings.TrimPrefix(path, "dotfiles/")
-		dstPath := filepath.Join(dotfilesDir, relPath)
-		return os.WriteFile(dstPath, data, 0o644)
-	})
-	if err != nil {
+	// Write embedded dotfiles and startup scripts.
+	if err := writeEmbeddedTree(embedded.Dotfiles, "dotfiles", tmpDir); err != nil {
 		return "", fmt.Errorf("writing dotfiles: %w", err)
+	}
+	if err := writeEmbeddedTree(embedded.Scripts, "scripts", tmpDir); err != nil {
+		return "", fmt.Errorf("writing scripts: %w", err)
 	}
 
 	// Stage COPY/ADD source files referenced by custom_steps/root_steps.
@@ -100,6 +86,31 @@ func Build(cfg *config.Config, project, projectPath string, force bool) (string,
 
 	fmt.Fprintf(os.Stderr, "Image %s built successfully\n", tag)
 	return tag, nil
+}
+
+// writeEmbeddedTree copies every file under root in fsys into
+// <tmpDir>/<root>/, preserving the layout below root.
+func writeEmbeddedTree(fsys fs.FS, root, tmpDir string) error {
+	dstDir := filepath.Join(tmpDir, root)
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return err
+	}
+	return fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, readErr := fs.ReadFile(fsys, path)
+		if readErr != nil {
+			return readErr
+		}
+		// path is "<root>/name" — strip the leading "<root>/" for the destination.
+		relPath := strings.TrimPrefix(path, root+"/")
+		dstPath := filepath.Join(dstDir, relPath)
+		if mkErr := os.MkdirAll(filepath.Dir(dstPath), 0o755); mkErr != nil {
+			return mkErr
+		}
+		return os.WriteFile(dstPath, data, 0o644)
+	})
 }
 
 // stagedFile represents one file or directory to copy into the Docker

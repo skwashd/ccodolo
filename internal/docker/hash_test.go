@@ -1,11 +1,41 @@
 package docker
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
+
+func TestHashEmbeddedFSIncludesPath(t *testing.T) {
+	same := []byte("echo hello\n")
+	renamed := fstest.MapFS{"scripts/two.sh": &fstest.MapFile{Data: same}}
+	original := fstest.MapFS{"scripts/one.sh": &fstest.MapFile{Data: same}}
+
+	a, b := sha256.New(), sha256.New()
+	hashEmbeddedFS(a, original)
+	hashEmbeddedFS(b, renamed)
+	if bytes.Equal(a.Sum(nil), b.Sum(nil)) {
+		t.Error("renaming an embedded file should change the digest")
+	}
+}
+
+func TestHashEmbeddedFSDelimitsFiles(t *testing.T) {
+	// Without a delimiter between path and contents, "ab" + "" and "a" +
+	// "b" hash identically and a rebuild is skipped.
+	split := fstest.MapFS{"a": &fstest.MapFile{Data: []byte("b:c")}}
+	joined := fstest.MapFS{"a:b": &fstest.MapFile{Data: []byte("c")}}
+
+	a, b := sha256.New(), sha256.New()
+	hashEmbeddedFS(a, split)
+	hashEmbeddedFS(b, joined)
+	if bytes.Equal(a.Sum(nil), b.Sum(nil)) {
+		t.Error("path and contents should not be ambiguous in the digest")
+	}
+}
 
 func TestImageTag(t *testing.T) {
 	tag := ImageTag("myproject", "claude", "FROM debian:trixie-slim\nRUN echo hello", nil)
