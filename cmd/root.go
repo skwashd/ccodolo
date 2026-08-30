@@ -222,13 +222,24 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
+	// Resolve the container runtime and hard-fail early on unsupported
+	// hosts. Kept out of config.Validate so a config with runtime = "apple"
+	// still parses and validates on any platform (e.g. Linux CI).
+	rt, err := docker.ParseRuntime(cfg.Runtime)
+	if err != nil {
+		return err
+	}
+	if err := rt.CheckHost(); err != nil {
+		return err
+	}
+
 	// Handle --exec mode.
 	if flagExec {
-		return docker.Exec(flagProject, workdir)
+		return docker.Exec(rt, flagProject, workdir)
 	}
 
 	// Build image.
-	imageTag, err := docker.Build(cfg, flagProject, projectPath, flagRebuild)
+	imageTag, err := docker.Build(rt, cfg, flagProject, projectPath, flagRebuild)
 	if err != nil {
 		return fmt.Errorf("building image: %w", err)
 	}
@@ -240,7 +251,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run container.
-	return docker.Run(cfg, flagProject, workdir, imageTag, args)
+	return docker.Run(rt, cfg, flagProject, workdir, imageTag, args)
 }
 
 // runToolTUI launches the interactive tool selection TUI.

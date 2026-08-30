@@ -3,6 +3,7 @@ package docker
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -346,5 +347,20 @@ func TestStageBuildContextFilesDirectorySource(t *testing.T) {
 	}
 	if string(data) != "two" {
 		t.Errorf("expected 'two', got %q", string(data))
+	}
+}
+
+func TestBuildArgs(t *testing.T) {
+	want := []string{
+		"build",
+		"--progress=plain",
+		"--build-arg", "CCODOLO_AGENT=claude",
+		"-t", "ccodolo:proj-claude-abcd1234", ".",
+	}
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		got := buildArgs(rt, "claude", "ccodolo:proj-claude-abcd1234")
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("buildArgs(%q) = %q, want %q", rt, got, want)
+		}
 	}
 }
