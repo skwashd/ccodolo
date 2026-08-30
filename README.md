@@ -18,6 +18,7 @@ components of the environment.
 - [Custom Tools](#custom-tools)
 - [Custom Build Steps](#custom-build-steps)
 - [Project Directories](#project-directories)
+- [Git Worktrees](#git-worktrees)
 - [Image Architecture](#image-architecture)
 - [Shell Support](#shell-support)
 - [Authentication](#authentication)
@@ -114,6 +115,12 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 
 ccodolo also has a `version` subcommand, which prints the build version, the
 commit hash, and the build date. There is no `--version` flag.
+
+The `repair-worktrees` subcommand fixes git worktree links after container
+use — see [Git Worktrees](#git-worktrees). It takes an optional `--workdir`
+flag (defaults to the current directory); any directory inside the
+repository works, since the worktree conventions are resolved from the
+repository root.
 
 `--reconfigure` cannot combine with `--create-new`, `--exec`, or
 `--build-only`. If you run `--reconfigure` with no terminal attached, for
@@ -372,6 +379,10 @@ Startup hooks only run on the agent launch path (`ccodolo --project ...`);
 they do not run for `--exec` shells attached to an already-running
 container.
 
+The startup runner is always installed, even when no tool declares a hook —
+it also runs the [git worktree hygiene](#git-worktrees) step before the
+agent launches. Hygiene output goes to the terminal, not the log file.
+
 ## Custom Tools
 
 You can add tools, override a built-in tool, or remove a built-in tool.
@@ -481,6 +492,64 @@ agents. Use it for:
 - Documentation or notes you want available in the container but not
   committed to your working directory
 
+## Git Worktrees
+
+Only your working directory is mounted into the container, and the mount
+path (`/workspace/<project>/<dirname>`) differs from the host path. That
+has two consequences for `git worktree`:
+
+- A worktree created as a **sibling** of the mounted directory (for example
+  `git worktree add ../feature`) lives in the container's ephemeral
+  filesystem and is **lost when the container exits**.
+- Worktree links record absolute paths, so a worktree that works in the
+  container looks broken on the host, and vice versa.
+
+The supported convention is to create worktrees **inside** the repository,
+under `.worktrees/`:
+
+```bash
+git worktree add .worktrees/feature -b feature
+```
+
+These live on the mount, so they survive container exits. At container
+start, ccodolo runs a hygiene step that keeps `.worktrees/` and
+`.claude/worktrees/` (where Claude Code's worktree isolation puts its
+worktrees) out of `git status` via `.git/info/exclude`, repairs the worktree
+links under both, and rewrites each worktree's `.git` file to a relative
+path so git commands run *inside* a worktree also work on the host with no
+extra steps.
+
+The hygiene step runs **at container start**, so it covers worktrees that
+already exist then. A worktree the agent creates *during* a session is
+handled at the next container start, or immediately by running
+`ccodolo repair-worktrees` on the host. (Repos with a separate git dir —
+`git clone --separate-git-dir`, or a submodule checkout — skip the relative
+rewrite and say so: the git dir is at no fixed offset from the worktrees,
+and usually outside the mount altogether.)
+
+If agents in your projects create worktrees themselves, add a line like
+this to your repository's `CLAUDE.md` or `AGENTS.md`:
+
+```
+Create git worktrees under .worktrees/ (e.g. git worktree add .worktrees/<name>).
+```
+
+**Host-side commands from the main repository** (`git worktree list`,
+`remove`, `prune`) still see container paths until you repair them:
+
+```bash
+ccodolo repair-worktrees
+```
+
+Run it from anywhere in the repository (or point `--workdir` at one). It
+covers both convention directories, skips anything under them that is not a
+linked worktree, and restores the relative `.git` pointer that
+`git worktree repair` on its own replaces with a host absolute path.
+
+Do **not** run `git worktree prune` on the host before repairing — git
+would treat the container-pathed worktrees as missing and discard their
+metadata. Files under `.worktrees/` are never deleted by any of this.
+
 ## Image Architecture
 
 ccodolo builds each image dynamically, per project:
@@ -492,8 +561,9 @@ ccodolo builds each image dynamically, per project:
 5. **Squash**: `FROM scratch` + `COPY --from=base / /` for a single-layer image
 
 ccodolo tags images `ccodolo:<project>-<agent>-<8-hex-sha256>`, based on the
-content of the rendered Dockerfile and the embedded dotfiles. It skips
-rebuilds if the image already exists. Use `--rebuild` to force one.
+rendered Dockerfile and on the paths and contents of the embedded dotfiles
+and startup scripts. It skips rebuilds if the image already exists. Use
+`--rebuild` to force one.
 
 ## Shell Support
 
@@ -607,6 +677,20 @@ Keep masking on for non-interactive, line-based commands, for example
 
 Any other wrapper that pipes stdout, for example `ccodolo ... | tee` or
 some CI runners, causes the same symptom for the same reason.
+
+### Git worktree looks broken on the host
+
+**Symptom**: after a container session, `git worktree list` on the host
+shows `/workspace/...` paths marked `prunable`, or git commands in a
+worktree fail with `not a git repository`.
+
+**Cause**: worktree links record absolute paths, and container paths do not
+exist on the host. Most often the worktree was created *during* a session,
+after that session's hygiene step had already run.
+
+**Fix**: run `ccodolo repair-worktrees` from anywhere in the repository (see
+[Git Worktrees](#git-worktrees)). Never run `git worktree prune` on the
+host before repairing.
 
 ## Migrating from the Shell Script
 

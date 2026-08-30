@@ -62,11 +62,15 @@ USER root
 {{ . }}
 {{ end }}
 
-# ── Startup hooks ─────────────────────────────────────
-{{ if .HasStartupHooks }}
+# ── Startup runner & hooks ───────────────────────────
+# git hygiene runs with inherited stdout/stderr — its output is benign and
+# should be visible at launch. Tool hooks stay redirected to the log file
+# because they may echo secrets.
+COPY --chmod=0755 scripts/git-hygiene.sh /etc/ccodolo/git-hygiene.sh
 RUN printf '%s\n' \
     '#!/bin/sh' \
-    '# ccodolo startup hook runner: run tool hooks, then exec the agent.' \
+    '# ccodolo startup runner: git hygiene, tool hooks, then exec the agent.' \
+    'sh /etc/ccodolo/git-hygiene.sh || echo "Warning: git worktree hygiene failed" >&2' \
     'CCODOLO_HOOK_LOG=/tmp/ccodolo-startup.log' \
     'for hook in /etc/ccodolo/startup.d/*.sh; do' \
     '    [ -f "$hook" ] || continue' \
@@ -77,7 +81,6 @@ RUN printf '%s\n' \
     'exec "$@"' \
     > /usr/local/bin/ccodolo-startup \
  && chmod 0755 /usr/local/bin/ccodolo-startup
-{{ end }}
 {{ range .StartupHookSteps }}
 {{ . }}
 {{ end }}

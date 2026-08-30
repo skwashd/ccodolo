@@ -43,7 +43,7 @@ func TestRenderDockerfileClaude(t *testing.T) {
 	}
 
 	// Should contain entrypoint.
-	if !strings.Contains(result, `["claude","--dangerously-skip-permissions"]`) {
+	if !strings.Contains(result, `["/usr/local/bin/ccodolo-startup","claude","--dangerously-skip-permissions"]`) {
 		t.Error("should contain claude entrypoint")
 	}
 
@@ -84,7 +84,7 @@ func TestRenderDockerfileAntigravity(t *testing.T) {
 	}
 
 	// Should contain antigravity entrypoint.
-	if !strings.Contains(result, `["agy","--dangerously-skip-permissions"]`) {
+	if !strings.Contains(result, `["/usr/local/bin/ccodolo-startup","agy","--dangerously-skip-permissions"]`) {
 		t.Error("should contain antigravity entrypoint")
 	}
 }
@@ -105,7 +105,7 @@ func TestRenderDockerfileKiro(t *testing.T) {
 	}
 
 	// Should contain kiro entrypoint.
-	if !strings.Contains(result, `["kiro-cli","chat","--trust-all-tools"]`) {
+	if !strings.Contains(result, `["/usr/local/bin/ccodolo-startup","kiro-cli","chat","--trust-all-tools"]`) {
 		t.Error("should contain kiro entrypoint")
 	}
 }
@@ -481,10 +481,9 @@ func TestRenderDockerfileStartupHookWrapsEntrypoint(t *testing.T) {
 	}
 }
 
-func TestRenderDockerfileNoHooksEntrypointUnchanged(t *testing.T) {
-	// No selected tool declares a StartupHook, so the entrypoint and image
-	// content must render exactly as they did before this feature existed —
-	// no forced rebuild of existing project images.
+func TestRenderDockerfileNoHooksStillRunsHygiene(t *testing.T) {
+	// No selected tool declares a StartupHook — the runner and its git
+	// worktree hygiene step must still be present and wrap the entrypoint.
 	cfg := &config.Config{
 		Agent: "claude",
 		Tools: map[string]string{"python": ""},
@@ -495,14 +494,17 @@ func TestRenderDockerfileNoHooksEntrypointUnchanged(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(result, `ENTRYPOINT ["claude","--dangerously-skip-permissions"]`) {
-		t.Errorf("expected unwrapped entrypoint when no tool has a startup hook, got Dockerfile:\n%s", result)
+	if !strings.Contains(result, `ENTRYPOINT ["/usr/local/bin/ccodolo-startup","claude","--dangerously-skip-permissions"]`) {
+		t.Errorf("expected entrypoint wrapped with the startup runner, got Dockerfile:\n%s", result)
 	}
-	if strings.Contains(result, "ccodolo-startup") {
-		t.Error("did not expect any reference to the startup-hook runner when no hooks are selected")
+	if !strings.Contains(result, "> /usr/local/bin/ccodolo-startup") {
+		t.Error("expected the startup runner script to be installed")
 	}
-	if strings.Contains(result, "/etc/ccodolo/startup.d") {
-		t.Error("did not expect a startup hook directory when no hooks are selected")
+	if !strings.Contains(result, "COPY --chmod=0755 scripts/git-hygiene.sh /etc/ccodolo/git-hygiene.sh") {
+		t.Error("expected the git hygiene script to be copied into the image")
+	}
+	if !strings.Contains(result, "sh /etc/ccodolo/git-hygiene.sh") {
+		t.Error("expected the runner to invoke the git hygiene script")
 	}
 }
 

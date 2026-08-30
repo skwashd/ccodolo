@@ -35,7 +35,6 @@ type RenderData struct {
 	ToolPath         string   // pre-computed PATH value
 	NpmConfig        string   // npm .npmrc setup (empty if no nodejs)
 	StartupHookSteps []string // RUN instructions installing tool startup hooks
-	HasStartupHooks  bool     // gates the startup-hook runner install + ENTRYPOINT wrap
 }
 
 // resolveTools resolves the final, dependency-ordered, deterministically
@@ -140,14 +139,10 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 		hookSteps = append(hookSteps, renderStartupHookStep(i, rt))
 	}
 
-	// Entrypoint as JSON array. When any selected tool has a startup hook,
-	// wrap the agent entrypoint with the hook runner so hooks execute before
-	// the agent launches. Images with no hooks render byte-identical to
-	// before this feature existed, so existing image tags are unaffected.
-	entrypoint := meta.Entrypoint
-	if len(hookSteps) > 0 {
-		entrypoint = append([]string{startupRunnerPath}, meta.Entrypoint...)
-	}
+	// Entrypoint as JSON array, always wrapped with the startup runner so
+	// git worktree hygiene (and any tool hooks) execute before the agent
+	// launches.
+	entrypoint := append([]string{startupRunnerPath}, meta.Entrypoint...)
 	epJSON, err := json.Marshal(entrypoint)
 	if err != nil {
 		return "", fmt.Errorf("marshaling entrypoint: %w", err)
@@ -164,7 +159,6 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 		ToolPath:         toolPath,
 		NpmConfig:        npmConfig,
 		StartupHookSteps: hookSteps,
-		HasStartupHooks:  len(hookSteps) > 0,
 	}
 
 	tmpl, err := template.New("Dockerfile").Parse(string(embedded.DockerfileTemplate))
