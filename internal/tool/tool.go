@@ -822,7 +822,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.29.0",
+		DefaultTag:  "1.30.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
