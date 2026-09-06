@@ -347,6 +347,7 @@ reproducible builds. Select tools during project creation in the TUI, with
 | `playwright-cli` | Testing | Playwright agent CLI with SKILLs (@playwright/cli) |
 | `chromium` | Testing | Chromium browser (headless-capable, for browser automation/testing) |
 | `lighthouse` | Testing | Google Lighthouse web page auditing CLI |
+| `obscura` | Testing | Obscura headless browser for AI agents and web scraping |
 | `acli` | Utilities | Atlassian CLI |
 | `ffmpeg` | Utilities | FFmpeg audio/video toolkit |
 | `gh` | Utilities | GitHub CLI |

@@ -600,6 +600,18 @@ var builtinCatalog = []Tool{
 		UpdateSource: UpdateNPM,
 		UpdateRef:    "lighthouse",
 	},
+	{
+		Name:        "obscura",
+		Category:    "testing",
+		Description: "Obscura headless browser for AI agents and web scraping",
+		SourceImage: "h4ckf0r0day/obscura",
+		DefaultTag:  "0.2.2",
+		Instructions: []string{
+			"COPY --from=%s /obscura /usr/local/bin/obscura",
+		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "h4ckf0r0day/obscura",
+	},
 
 	// ── utils ─────────────────────────────────────────────────────────────
 	{
