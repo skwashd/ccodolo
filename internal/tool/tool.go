@@ -464,6 +464,18 @@ var builtinCatalog = []Tool{
 		UpdateSource: UpdateGitHub,
 		UpdateRef:    "terraform-linters/tflint",
 	},
+	{
+		Name:         "wrangler",
+		Category:     "cloud",
+		Description:  "Cloudflare Workers CLI",
+		DefaultTag:   "4.129.0",
+		Dependencies: []string{"nodejs"},
+		Instructions: []string{
+			"RUN npm install -g wrangler@{{.Tag}}",
+		},
+		UpdateSource: UpdateNPM,
+		UpdateRef:    "wrangler",
+	},
 
 	// ── database ──────────────────────────────────────────────────────────
 	{

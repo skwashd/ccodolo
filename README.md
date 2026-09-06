@@ -337,6 +337,7 @@ reproducible builds. Select tools during project creation in the TUI, with
 | `terraform` | Cloud / IaC | HashiCorp Terraform |
 | `terraform-docs` | Cloud / IaC | terraform-docs documentation generator |
 | `tflint` | Cloud / IaC | TFLint Terraform linter |
+| `wrangler` | Cloud / IaC | Cloudflare Workers CLI |
 | `mysql-client` | Database Clients | MySQL/MariaDB client |
 | `postgresql-client` | Database Clients | PostgreSQL client |
 | `redis-cli` | Database Clients | Redis CLI client |
@@ -391,6 +392,7 @@ These tools install their dependencies automatically:
 - `lighthouse` installs `nodejs` and `chromium`
 - `mermaid-cli` installs `nodejs` and `chromium`
 - `linear-cli` installs `nodejs`
+- `wrangler` installs `nodejs`
 - `readwise` installs `nodejs`
 - `youtube-transcript-api` installs `python`
 - `yt-dlp` installs `python`
