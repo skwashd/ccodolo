@@ -78,7 +78,7 @@ var registry = map[Agent]Meta{
 	Codex: {
 		Name:       Codex,
 		ConfigDir:  ".codex",
-		InstallCmd: `RUN npm install -g @openai/codex@v0.153.3`,
+		InstallCmd: `RUN npm install -g @openai/codex@v0.153.4`,
 		Entrypoint: []string{"codex", "--dangerously-bypass-approvals-and-sandbox"},
 		DependsOn:  []string{"nodejs"},
 	},
@@ -99,7 +99,7 @@ var registry = map[Agent]Meta{
 	OpenCode: {
 		Name:       OpenCode,
 		ConfigDir:  ".opencode",
-		InstallCmd: `RUN npm install -g opencode-ai@v1.18.28`,
+		InstallCmd: `RUN npm install -g opencode-ai@v1.18.29`,
 		Entrypoint: []string{"opencode", "--yolo"},
 		DependsOn:  []string{"nodejs"},
 	},
