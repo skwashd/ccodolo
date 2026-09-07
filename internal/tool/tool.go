@@ -98,7 +98,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.4.1",
+		DefaultTag:  "1.4.2",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
