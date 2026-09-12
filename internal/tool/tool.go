@@ -318,7 +318,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.23",
+		DefaultTag:   "1.5.25",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
