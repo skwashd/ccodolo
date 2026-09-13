@@ -233,7 +233,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "public.ecr.aws/docker/library/rust",
-		DefaultTag:  "1.98.0",
+		DefaultTag:  "1.98.1",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
