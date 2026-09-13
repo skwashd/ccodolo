@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.129.0",
+		DefaultTag:   "4.131.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
