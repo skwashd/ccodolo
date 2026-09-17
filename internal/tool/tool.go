@@ -294,7 +294,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.80.0",
+		DefaultTag:  "0.81.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.4.1",
+		DefaultTag:   "12.4.2",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.12.13",
+		DefaultTag:  "0.12.15",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.131.2",
+		DefaultTag:   "4.132.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -548,7 +548,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright-cli",
 		Category:     "testing",
 		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
-		DefaultTag:   "0.1.19",
+		DefaultTag:   "0.1.20",
 		Dependencies: []string{"playwright"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
@@ -641,7 +641,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.100.0",
+		DefaultTag:  "2.101.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
