@@ -111,7 +111,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Deno runtime",
 		SourceImage: "denoland/deno",
-		DefaultTag:  "2.9.6",
+		DefaultTag:  "2.9.7",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/deno /usr/local/bin/deno",
 		},
@@ -318,7 +318,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.5.26",
+		DefaultTag:   "1.7.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.16.2",
+		DefaultTag:  "1.16.3",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.132.0",
+		DefaultTag:   "4.134.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
