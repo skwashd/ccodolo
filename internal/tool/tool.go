@@ -573,7 +573,7 @@ var builtinCatalog = []Tool{
 		Name:         "lighthouse",
 		Category:     "testing",
 		Description:  "Google Lighthouse web page auditing CLI",
-		DefaultTag:   "13.4.1",
+		DefaultTag:   "13.5.0",
 		Dependencies: []string{"nodejs", "chromium"},
 		Instructions: []string{
 			// Pre-seed the first-run error-reporting preference so `coder` is
