@@ -85,7 +85,7 @@ var registry = map[Agent]Meta{
 	Copilot: {
 		Name:       Copilot,
 		ConfigDir:  ".copilot",
-		InstallCmd: `RUN npm install -g @github/copilot@v1.0.86`,
+		InstallCmd: `RUN npm install -g @github/copilot@v1.0.87`,
 		Entrypoint: []string{"copilot", "--allow-all"},
 		DependsOn:  []string{"nodejs"},
 	},
