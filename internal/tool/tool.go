@@ -605,7 +605,7 @@ var builtinCatalog = []Tool{
 		Category:    "testing",
 		Description: "Obscura headless browser for AI agents and web scraping",
 		SourceImage: "h4ckf0r0day/obscura",
-		DefaultTag:  "0.2.2",
+		DefaultTag:  "0.2.3",
 		Instructions: []string{
 			"COPY --from=%s /obscura /usr/local/bin/obscura",
 		},
