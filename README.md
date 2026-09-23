@@ -805,7 +805,8 @@ image it builds and runs is the same Linux image as on macOS and Linux.
 - SSH and GPG keys cannot be bind-mounted. Docker Desktop shares Windows
   files as mode 0777 and documents this as not configurable, so OpenSSH
   rejects any mounted private key and GnuPG rejects its home directory.
-  ccodolo warns when a `[[volumes]]` entry mounts `.ssh` or `.gnupg`. Use
+  ccodolo warns when a `[[volumes]]` entry mounts `.ssh` or `.gnupg`, or
+  anything inside either, from whichever side of the mount names it. Use
   HTTPS remotes with a credential helper or a token instead. SSH agent
   forwarding from Docker Desktop is only available on macOS and Linux.
 - Files shared from Windows may not be owned by the container user. The

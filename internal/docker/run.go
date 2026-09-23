@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -83,14 +82,27 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 func credentialMountWarnings(vols []config.Volume) []string {
 	var warnings []string
 	for _, v := range vols {
-		switch path.Base(v.Container) {
-		case ".ssh", ".gnupg":
+		if isCredentialPath(v.Host) || isCredentialPath(v.Container) {
 			warnings = append(warnings, fmt.Sprintf(
 				"Warning: %s is bind-mounted from Windows; Docker Desktop shares files as mode 0777, which OpenSSH and GnuPG reject. Use HTTPS with a credential helper for git instead.",
 				v.Container))
 		}
 	}
 	return warnings
+}
+
+// isCredentialPath reports whether any segment of p is an SSH or GnuPG
+// directory. Checking segments rather than the basename, on both sides of
+// the mount, catches a single key (~/.ssh/id_ed25519) and a renamed target
+// (~/.ssh mounted at /home/coder/keys). Both separators are split on
+// because a Windows host path may use either.
+func isCredentialPath(p string) bool {
+	for _, seg := range strings.FieldsFunc(p, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if seg == ".ssh" || seg == ".gnupg" {
+			return true
+		}
+	}
+	return false
 }
 
 // mountArg formats one bind mount as the flag and value for the runtime

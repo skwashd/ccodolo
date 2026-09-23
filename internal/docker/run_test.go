@@ -266,13 +266,18 @@ func TestCredentialMountWarnings(t *testing.T) {
 		{Host: "~/.aws", Container: "/home/coder/.aws"},
 		{Host: "~/.ssh", Container: "/home/coder/.ssh"},
 		{Host: "~/.gnupg", Container: "/home/coder/.gnupg/"},
+		{Host: `C:\Users\dave\.ssh\id_ed25519`, Container: "/home/coder/key"}, // single key
+		{Host: "~/keys", Container: "/home/coder/.ssh/keys"},                  // renamed on the host side
+		{Host: "~/.sshfs", Container: "/home/coder/.gnupgx"},                  // not credential dirs
 	}
 	got := credentialMountWarnings(vols)
-	if len(got) != 2 {
-		t.Fatalf("expected 2 warnings, got %d: %q", len(got), got)
+	if len(got) != 4 {
+		t.Fatalf("expected 4 warnings, got %d: %q", len(got), got)
 	}
-	if !strings.Contains(got[0], "/home/coder/.ssh") || !strings.Contains(got[1], "/home/coder/.gnupg") {
-		t.Errorf("warnings should name the mounted paths, got %q", got)
+	for i, want := range []string{"/home/coder/.ssh", "/home/coder/.gnupg", "/home/coder/key", "/home/coder/.ssh/keys"} {
+		if !strings.Contains(got[i], want) {
+			t.Errorf("warning %d should name %s, got %q", i, want, got[i])
+		}
 	}
 	if got := credentialMountWarnings(nil); len(got) != 0 {
 		t.Errorf("expected no warnings for no volumes, got %q", got)
