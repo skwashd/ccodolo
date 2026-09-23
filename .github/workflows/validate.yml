@@ -10,40 +10,26 @@ on:
 permissions: {}
 
 jobs:
-  go-validation:
-    name: Go
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run tests
-        run: go test -race ./...
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-
-  # Windows runners cannot run Linux containers, so this job covers only
+  # Windows runners cannot run Linux containers, so that leg covers only
   # the CLI, config and template layers — but on a real Windows filesystem
   # and console, which is what catches path and TTY bugs cross-compiling
-  # cannot. Lint here is also what checks exec_windows.go.
-  go-validation-windows:
-    name: Go (windows)
-    runs-on: windows-latest
+  # cannot. Lint there is also what checks exec_windows.go. -race needs
+  # cgo and a C toolchain, so only the Linux leg runs the detector.
+  go-validation:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Go
+            os: ubuntu-24.04
+            test-flags: -race
+          - name: Go (windows)
+            os: windows-latest
+            test-flags: ""
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,10 +44,11 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-      # No -race: it needs cgo and a C toolchain on Windows, and the Linux
-      # job already runs the detector.
       - name: Run tests
-        run: go test ./...
+        shell: bash
+        env:
+          TEST_FLAGS: ${{ matrix.test-flags }}
+        run: go test $TEST_FLAGS ./...
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
