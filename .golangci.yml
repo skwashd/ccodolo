@@ -1,0 +1,7 @@
+version: "2"
+
+# Linters are the golangci-lint defaults. gofmt is enabled as a formatter so
+# `golangci-lint run` fails on unformatted code instead of letting it drift.
+formatters:
+  enable:
+    - gofmt

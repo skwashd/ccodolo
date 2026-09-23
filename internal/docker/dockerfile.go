@@ -213,7 +213,7 @@ func hasNodejs(resolved []tool.ResolvedTool) bool {
 // pass — renderInstructions' %s substitution would corrupt a hook
 // containing printf-style format specifiers (e.g. `printf '%s\n' "$TOKEN"`).
 // Each line is written via `printf '%s\n'` with every argument single-quoted
-// (embedded single quotes escaped as '\''), so the hook's shell reaches the
+// (embedded single quotes escaped as '\”), so the hook's shell reaches the
 // script byte-for-byte regardless of its content.
 func renderStartupHookStep(index int, rt tool.ResolvedTool) string {
 	scriptPath := fmt.Sprintf("%s/%02d-%s.sh", startupHookDir, index, rt.Name)

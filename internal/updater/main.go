@@ -21,10 +21,10 @@ const (
 )
 
 func main() {
-	fCheck   := flag.Bool("check", false, "Print a plan table and exit (default mode)")
-	fJSON    := flag.Bool("json", false, "Print the plan as JSON and exit")
-	fWrite   := flag.Bool("write", false, "Rewrite files and create one git commit per update")
-	fOnly    := flag.String("only", "", "Comma-separated list of tool names to restrict to")
+	fCheck := flag.Bool("check", false, "Print a plan table and exit (default mode)")
+	fJSON := flag.Bool("json", false, "Print the plan as JSON and exit")
+	fWrite := flag.Bool("write", false, "Rewrite files and create one git commit per update")
+	fOnly := flag.String("only", "", "Comma-separated list of tool names to restrict to")
 	fTimeout := flag.Duration("timeout", 2*time.Minute, "Overall HTTP timeout")
 	fAllowUV := flag.Bool("allow-unverified", false, "Include candidates with no publish timestamp")
 	flag.Parse()

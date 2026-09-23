@@ -39,10 +39,10 @@ var rootCmd = &cobra.Command{
 	Short: "Multi-agent coding environment in Docker",
 	Long:  "CCoDoLo launches sandboxed Docker containers for AI coding assistants with isolated project environments.",
 	// Accept arbitrary args after --.
-	Args:              cobra.ArbitraryArgs,
+	Args:               cobra.ArbitraryArgs,
 	DisableFlagParsing: false,
-	SilenceUsage:      true,
-	RunE:              runRoot,
+	SilenceUsage:       true,
+	RunE:               runRoot,
 }
 
 func init() {
@@ -507,7 +507,7 @@ func runToolSelectTUI(preSelected map[string]bool) ([]string, error) {
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select dev tools to install").
-				Height(len(options)+2).
+				Height(len(options) + 2).
 				Options(options...).
 				Value(&selectedTools),
 		),

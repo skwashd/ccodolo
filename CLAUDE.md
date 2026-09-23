@@ -22,6 +22,7 @@ ccodolo/
 │       ├── updates.yml              # daily agent + tool version bumps (opens PRs)
 │       ├── validate.yml             # go vet, go test, golangci-lint, cross-platform build, docker image smoke test
 │       └── zizmor.yml               # GitHub Actions security scanning
+├── .golangci.yml                    # Default linters + gofmt as a formatter check
 ├── .goreleaser.yml                  # Cross-platform binaries + checksums + build attestation
 ├── go.mod / go.sum
 ├── main.go                          # Entrypoint → cmd.Execute()
