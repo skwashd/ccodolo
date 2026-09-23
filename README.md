@@ -300,6 +300,12 @@ cannot run on CI hosts). Single-file mounts (such as claude's
 `.claude.json`) and `readonly` volumes are the areas most likely to differ
 from Docker — please report issues.
 
+Bind mounts are passed as `-v host:container` on this runtime, where Docker
+gets `--mount`. The container CLI's `--mount` parser rejects a `=` anywhere
+in a path, and there is no drive-letter ambiguity on macOS to justify the
+switch. The comma and double-quote restriction on volume paths (see
+[Authentication](#authentication)) therefore does not apply here.
+
 ### Migration from ccodolo.config
 
 If you have an existing `ccodolo.config`, ccodolo migrates it to
@@ -664,11 +670,10 @@ container. To forward specific variables, for example API keys, add them to
 `passthrough_vars` (see [Passthrough env vars](#passthrough-env-vars)). To
 mount credential files, for example `~/.aws`, use `[[volumes]]` instead.
 
-A `[[volumes]]` host path must already exist: ccodolo passes it to the
-runtime as a `--mount` bind, which fails instead of creating an empty
-directory. Neither path may contain a comma or a double quote, which the
-`--mount` syntax cannot express. ccodolo checks both before it builds the
-image.
+A `[[volumes]]` host path must already exist; ccodolo does not create an
+empty directory for it. With the Docker runtime neither path may contain a
+comma or a double quote, which the `--mount` syntax cannot express. ccodolo
+checks both before it builds the image.
 
 ### Claude Code
 - **Config directory**: `.claude/`

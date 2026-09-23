@@ -63,24 +63,40 @@ func runArgsFixture(t *testing.T, rt Runtime, memory string) (args []string, pro
 	return args, projectPath, workdir
 }
 
-// expectedRunArgs is the argv both backends share, except the passthrough
-// entry for CCODOLO_TEST_SET and the memory flag (omitted when memory is
-// empty), which the caller supplies.
-func expectedRunArgs(projectPath, workdir, passthroughSet, memory string) []string {
+// wantMount is the flag pair each backend emits for one bind mount: docker
+// takes --mount, the Apple runtime keeps -v.
+func wantMount(rt Runtime, src, dst string, readOnly bool) []string {
+	if rt == RuntimeApple {
+		v := src + ":" + dst
+		if readOnly {
+			v += ":ro"
+		}
+		return []string{"-v", v}
+	}
+	m := "type=bind,source=" + src + ",target=" + dst
+	if readOnly {
+		m += ",readonly"
+	}
+	return []string{"--mount", m}
+}
+
+// expectedRunArgs is the argv for rt, except the passthrough entry for
+// CCODOLO_TEST_SET and the memory flag (omitted when memory is empty),
+// which the caller supplies.
+func expectedRunArgs(rt Runtime, projectPath, workdir, passthroughSet, memory string) []string {
 	args := []string{"run", "--rm", "-it"}
 	if memory != "" {
 		args = append(args, "--memory", memory)
 	}
+	args = append(args, "--name", "test-name", "-w", "/workspace/proj/wd")
+	args = append(args, wantMount(rt, workdir, "/workspace/proj/wd", false)...)
+	args = append(args, wantMount(rt, filepath.Join(projectPath, "commandhistory"), "/commandhistory", false)...)
+	args = append(args, wantMount(rt, filepath.Join(projectPath, "common"), "/home/coder/project", false)...)
+	args = append(args, wantMount(rt, filepath.Join(projectPath, ".claude"), "/home/coder/.claude", false)...)
+	args = append(args, wantMount(rt, filepath.Join(projectPath, ".claude.json"), "/home/coder/.claude.json", false)...)
+	args = append(args, wantMount(rt, filepath.Join(projectPath, ".claude-plugin"), "/home/coder/.claude-plugin", false)...)
+	args = append(args, wantMount(rt, "/host/data", "/data", true)...)
 	return append(args,
-		"--name", "test-name",
-		"-w", "/workspace/proj/wd",
-		"--mount", "type=bind,source="+workdir+",target=/workspace/proj/wd",
-		"--mount", "type=bind,source="+filepath.Join(projectPath, "commandhistory")+",target=/commandhistory",
-		"--mount", "type=bind,source="+filepath.Join(projectPath, "common")+",target=/home/coder/project",
-		"--mount", "type=bind,source="+filepath.Join(projectPath, ".claude")+",target=/home/coder/.claude",
-		"--mount", "type=bind,source="+filepath.Join(projectPath, ".claude.json")+",target=/home/coder/.claude.json",
-		"--mount", "type=bind,source="+filepath.Join(projectPath, ".claude-plugin")+",target=/home/coder/.claude-plugin",
-		"--mount", "type=bind,source=/host/data,target=/data,readonly",
 		"-e", "FOO=bar",
 		"-e", passthroughSet,
 		"-e", "TERM=xterm-256color",
@@ -91,7 +107,7 @@ func expectedRunArgs(projectPath, workdir, passthroughSet, memory string) []stri
 
 func TestRunArgsDocker(t *testing.T) {
 	args, projectPath, workdir := runArgsFixture(t, RuntimeDocker, "")
-	want := expectedRunArgs(projectPath, workdir, "CCODOLO_TEST_SET", "")
+	want := expectedRunArgs(RuntimeDocker, projectPath, workdir, "CCODOLO_TEST_SET", "")
 	if !reflect.DeepEqual(args, want) {
 		t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 	}
@@ -99,7 +115,7 @@ func TestRunArgsDocker(t *testing.T) {
 
 func TestRunArgsApplePassthroughResolved(t *testing.T) {
 	args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "")
-	want := expectedRunArgs(projectPath, workdir, "CCODOLO_TEST_SET=sekrit", defaultAppleMemory)
+	want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", defaultAppleMemory)
 	if !reflect.DeepEqual(args, want) {
 		t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 	}
@@ -113,7 +129,7 @@ func TestRunArgsApplePassthroughResolved(t *testing.T) {
 func TestRunArgsMemory(t *testing.T) {
 	t.Run("docker configured", func(t *testing.T) {
 		args, projectPath, workdir := runArgsFixture(t, RuntimeDocker, "8g")
-		want := expectedRunArgs(projectPath, workdir, "CCODOLO_TEST_SET", "8g")
+		want := expectedRunArgs(RuntimeDocker, projectPath, workdir, "CCODOLO_TEST_SET", "8g")
 		if !reflect.DeepEqual(args, want) {
 			t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 		}
@@ -121,7 +137,7 @@ func TestRunArgsMemory(t *testing.T) {
 
 	t.Run("apple configured overrides default", func(t *testing.T) {
 		args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "2g")
-		want := expectedRunArgs(projectPath, workdir, "CCODOLO_TEST_SET=sekrit", "2g")
+		want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", "2g")
 		if !reflect.DeepEqual(args, want) {
 			t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 		}
@@ -162,20 +178,30 @@ func TestRunArgsWindowsTerminalDefaults(t *testing.T) {
 }
 
 func TestMountArg(t *testing.T) {
-	got, err := mountArg(`C:\Users\dave\proj`, "/workspace/p/proj", false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if want := `type=bind,source=C:\Users\dave\proj,target=/workspace/p/proj`; got != want {
-		t.Errorf("mountArg = %q, want %q", got, want)
-	}
-
-	got, err = mountArg("/home/dave/.aws", "/home/coder/.aws", true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if want := "type=bind,source=/home/dave/.aws,target=/home/coder/.aws,readonly"; got != want {
-		t.Errorf("mountArg = %q, want %q", got, want)
+	for _, tc := range []struct {
+		rt       Runtime
+		src, dst string
+		readOnly bool
+		want     []string
+	}{
+		{RuntimeDocker, `C:\Users\dave\proj`, "/workspace/p/proj", false,
+			[]string{"--mount", `type=bind,source=C:\Users\dave\proj,target=/workspace/p/proj`}},
+		{RuntimeDocker, "/home/dave/.aws", "/home/coder/.aws", true,
+			[]string{"--mount", "type=bind,source=/home/dave/.aws,target=/home/coder/.aws,readonly"}},
+		{RuntimeApple, "/Users/dave/.aws", "/home/coder/.aws", true,
+			[]string{"-v", "/Users/dave/.aws:/home/coder/.aws:ro"}},
+		// -v has no CSV value, so the characters docker rejects are fine here.
+		{RuntimeApple, "/Users/dave/src/env=prod, v2", "/workspace/p/proj", false,
+			[]string{"-v", "/Users/dave/src/env=prod, v2:/workspace/p/proj"}},
+	} {
+		got, err := mountArg(tc.rt, tc.src, tc.dst, tc.readOnly)
+		if err != nil {
+			t.Errorf("mountArg(%v, %q, %q): unexpected error: %v", tc.rt, tc.src, tc.dst, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("mountArg(%v, %q, %q) = %q, want %q", tc.rt, tc.src, tc.dst, got, tc.want)
+		}
 	}
 
 	for _, tc := range []struct{ src, dst string }{
@@ -183,8 +209,8 @@ func TestMountArg(t *testing.T) {
 		{"/data", "/mnt/a,b"},
 		{`/home/dave/proj"v2`, "/workspace/p/proj"},
 	} {
-		if _, err := mountArg(tc.src, tc.dst, false); err == nil || !strings.Contains(err.Error(), "comma or double quote") {
-			t.Errorf("mountArg(%q, %q): expected comma/quote error, got %v", tc.src, tc.dst, err)
+		if _, err := mountArg(RuntimeDocker, tc.src, tc.dst, false); err == nil || !strings.Contains(err.Error(), "comma or double quote") {
+			t.Errorf("mountArg(docker, %q, %q): expected comma/quote error, got %v", tc.src, tc.dst, err)
 		}
 	}
 }
@@ -195,22 +221,27 @@ func TestCheckMounts(t *testing.T) {
 	existing := t.TempDir()
 
 	ok := &config.Config{Volumes: []config.Volume{{Host: existing, Container: "/data"}}}
-	if err := CheckMounts(ok, workdir, projectPath); err != nil {
+	if err := CheckMounts(RuntimeDocker, ok, workdir, projectPath); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	missing := &config.Config{Volumes: []config.Volume{{Host: filepath.Join(existing, "nope"), Container: "/data"}}}
-	err := CheckMounts(missing, workdir, projectPath)
-	if err == nil || !strings.Contains(err.Error(), "does not exist") || !strings.Contains(err.Error(), "nope") {
-		t.Errorf("expected missing-path error naming the entry, got %v", err)
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		err := CheckMounts(rt, missing, workdir, projectPath)
+		if err == nil || !strings.Contains(err.Error(), "does not exist") || !strings.Contains(err.Error(), "nope") {
+			t.Errorf("%v: expected missing-path error naming the entry, got %v", rt, err)
+		}
 	}
 
 	badContainer := &config.Config{Volumes: []config.Volume{{Host: existing, Container: "/mnt/a,b"}}}
-	if err := CheckMounts(badContainer, workdir, projectPath); err == nil || !strings.Contains(err.Error(), "/mnt/a,b") {
+	if err := CheckMounts(RuntimeDocker, badContainer, workdir, projectPath); err == nil || !strings.Contains(err.Error(), "/mnt/a,b") {
 		t.Errorf("expected comma error naming the container path, got %v", err)
 	}
+	if err := CheckMounts(RuntimeApple, badContainer, workdir, projectPath); err != nil {
+		t.Errorf("apple runtime uses -v, a comma should pass: %v", err)
+	}
 
-	if err := CheckMounts(&config.Config{}, "/srv/a,b", projectPath); err == nil || !strings.Contains(err.Error(), "workdir") {
+	if err := CheckMounts(RuntimeDocker, &config.Config{}, "/srv/a,b", projectPath); err == nil || !strings.Contains(err.Error(), "workdir") {
 		t.Errorf("expected workdir error, got %v", err)
 	}
 }

@@ -93,30 +93,37 @@ func credentialMountWarnings(vols []config.Volume) []string {
 	return warnings
 }
 
-// mountArg formats a bind mount as --mount rather than -v: named fields
-// avoid the colon ambiguity of a Windows drive-letter path
-// (C:\proj:/workspace), and docker and Apple's container CLI accept the
-// same keys. Both CSV-parse the value, so a comma cannot be expressed, and
-// docker's encoding/csv parser also rejects a bare double quote. A Windows
-// profile directory can legally contain a comma, so the error names the
-// path. Docker splits a field on its first "="; Apple's parser does not
-// (FOLLOWUP.md).
-func mountArg(src, dst string, readOnly bool) (string, error) {
+// mountArg formats one bind mount as the flag and value for the runtime
+// CLI. Docker gets --mount: its named fields avoid the colon ambiguity of
+// a Windows drive-letter path (C:\proj:/workspace), at the cost that the
+// CSV value cannot carry a comma or a bare double quote. A Windows profile
+// directory can legally contain a comma, so the error names the path.
+// Apple's container CLI keeps -v: it is macOS-only, so there is no drive
+// letter to disambiguate, and its --mount parser rejects "=" in a path.
+func mountArg(rt Runtime, src, dst string, readOnly bool) ([]string, error) {
+	if rt == RuntimeApple {
+		v := src + ":" + dst
+		if readOnly {
+			v += ":ro"
+		}
+		return []string{"-v", v}, nil
+	}
 	for _, p := range []string{src, dst} {
-		if err := checkMountPath(p); err != nil {
-			return "", err
+		if err := checkMountPath(rt, p); err != nil {
+			return nil, err
 		}
 	}
 	arg := fmt.Sprintf("type=bind,source=%s,target=%s", src, dst)
 	if readOnly {
 		arg += ",readonly"
 	}
-	return arg, nil
+	return []string{"--mount", arg}, nil
 }
 
-// checkMountPath rejects the characters a --mount value cannot carry.
-func checkMountPath(p string) error {
-	if strings.ContainsAny(p, `,"`) {
+// checkMountPath rejects the characters a docker --mount value cannot
+// carry. The Apple runtime uses -v, which has no such limit.
+func checkMountPath(rt Runtime, p string) error {
+	if rt != RuntimeApple && strings.ContainsAny(p, `,"`) {
 		return fmt.Errorf("mount path %q contains a comma or double quote, which the --mount syntax cannot express", p)
 	}
 	return nil
@@ -125,11 +132,11 @@ func checkMountPath(p string) error {
 // CheckMounts validates the bind-mount sources Run will use, so a config
 // that cannot launch fails before the image build with the offending entry
 // named. Unlike -v, --mount does not create a missing host directory.
-func CheckMounts(cfg *config.Config, workdir, projectPath string) error {
-	if err := checkMountPath(workdir); err != nil {
+func CheckMounts(rt Runtime, cfg *config.Config, workdir, projectPath string) error {
+	if err := checkMountPath(rt, workdir); err != nil {
 		return fmt.Errorf("workdir: %w", err)
 	}
-	if err := checkMountPath(projectPath); err != nil {
+	if err := checkMountPath(rt, projectPath); err != nil {
 		return fmt.Errorf("project directory: %w", err)
 	}
 	for _, v := range cfg.Volumes {
@@ -140,10 +147,10 @@ func CheckMounts(cfg *config.Config, workdir, projectPath string) error {
 		if _, err := os.Stat(hostPath); err != nil {
 			return fmt.Errorf("volume host path %q does not exist: %w", v.Host, err)
 		}
-		if err := checkMountPath(hostPath); err != nil {
+		if err := checkMountPath(rt, hostPath); err != nil {
 			return fmt.Errorf("volume host path %q: %w", v.Host, err)
 		}
-		if err := checkMountPath(v.Container); err != nil {
+		if err := checkMountPath(rt, v.Container); err != nil {
 			return fmt.Errorf("volume container path %q: %w", v.Container, err)
 		}
 	}
@@ -214,11 +221,11 @@ func runArgs(
 		mounts = append(mounts, bindMount{src: hostPath, dst: v.Container, readOnly: v.ReadOnly})
 	}
 	for _, m := range mounts {
-		arg, err := mountArg(m.src, m.dst, m.readOnly)
+		pair, err := mountArg(rt, m.src, m.dst, m.readOnly)
 		if err != nil {
 			return nil, err
 		}
-		args = append(args, "--mount", arg)
+		args = append(args, pair...)
 	}
 
 	// Config-defined environment variables.

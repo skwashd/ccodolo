@@ -243,7 +243,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// A bad mount should fail before the slow image build, not after it.
-	if err := docker.CheckMounts(cfg, workdir, projectPath); err != nil {
+	if err := docker.CheckMounts(rt, cfg, workdir, projectPath); err != nil {
 		return err
 	}
 
