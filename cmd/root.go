@@ -80,7 +80,11 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	warnIfMinTTY()
+	// --build-only never prompts or launches a container, so it needs no
+	// console.
+	if !flagBuildOnly {
+		warnIfMinTTY()
+	}
 
 	// Resolve project path.
 	projectPath, err := config.ProjectPath(flagProject)
