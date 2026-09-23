@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.135.0",
+		DefaultTag:   "4.136.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -605,7 +605,7 @@ var builtinCatalog = []Tool{
 		Category:    "testing",
 		Description: "Obscura headless browser for AI agents and web scraping",
 		SourceImage: "h4ckf0r0day/obscura",
-		DefaultTag:  "0.2.2",
+		DefaultTag:  "0.2.3",
 		Instructions: []string{
 			"COPY --from=%s /obscura /usr/local/bin/obscura",
 		},
