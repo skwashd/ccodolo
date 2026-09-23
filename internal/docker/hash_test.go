@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -123,6 +124,9 @@ func TestImageTagStagedFileContentsChangeTag(t *testing.T) {
 }
 
 func TestImageTagStagedFileModeChangesTag(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not preserved on Windows")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "g.sh")
 	if err := os.WriteFile(path, []byte("echo one"), 0o644); err != nil {

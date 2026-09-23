@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -131,7 +132,7 @@ func writeEmbeddedTree(fsys fs.FS, root, tmpDir string) error {
 // COPY/ADD instruction in the rendered Dockerfile references, relative to
 // the context root.
 type stagedFile struct {
-	RelPath string // path relative to the build context root
+	RelPath string // slash-separated path relative to the build context root
 	SrcPath string // absolute path to the source file/dir on disk
 }
 
@@ -252,7 +253,11 @@ func resolveStepFiles(step string, origin config.StepOrigin, projectPath string)
 // resolveSource resolves a single COPY/ADD source token against commonDir,
 // expanding glob patterns, and returns one stagedFile per match.
 func resolveSource(step, src, commonDir string) ([]stagedFile, error) {
-	if filepath.IsAbs(src) {
+	// Sources are slash-separated, so path.IsAbs catches "/etc/passwd" on
+	// every host; filepath.IsAbs catches "C:\..." on Windows. Nothing
+	// downstream rejects either: filepath.Join would nest them under
+	// commonDir and withinDir would then pass them.
+	if path.IsAbs(src) || filepath.IsAbs(src) {
 		return nil, fmt.Errorf("custom step %q: source %q must be a relative path into %s", step, src, commonDir)
 	}
 
@@ -285,7 +290,10 @@ func resolveSource(step, src, commonDir string) ([]stagedFile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("custom step %q: resolving %q: %w", step, src, err)
 		}
-		files = append(files, stagedFile{RelPath: rel, SrcPath: m})
+		// Slash form: RelPath names a build-context path, which is what the
+		// Dockerfile's COPY refers to, and it feeds the image hash, which
+		// must not differ between a Windows and a Linux host.
+		files = append(files, stagedFile{RelPath: filepath.ToSlash(rel), SrcPath: m})
 	}
 	return files, nil
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -232,6 +233,7 @@ func TestResolveStepFilesDirectorySource(t *testing.T) {
 func TestOriginCommonDirMapping(t *testing.T) {
 	fakeHome := t.TempDir()
 	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads this on Windows
 
 	globalCommon := filepath.Join(fakeHome, ".ccodolo", "common")
 	if err := os.MkdirAll(globalCommon, 0o755); err != nil {
@@ -302,6 +304,9 @@ func TestResolveBuildContextFilesSortedAndCombinesRootAndCustom(t *testing.T) {
 }
 
 func TestStageBuildContextFilesPreservesMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not preserved on Windows")
+	}
 	src := t.TempDir()
 	scriptPath := filepath.Join(src, "run.sh")
 	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\necho hi\n"), 0o755); err != nil {

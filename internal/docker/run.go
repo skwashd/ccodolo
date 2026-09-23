@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -63,7 +65,89 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 		warnMissingHookVars(missingHookVars(resolved, available))
 	}
 
+	// Docker Desktop on Windows shares host files as mode 0777, which
+	// OpenSSH and GnuPG refuse. Only Windows hosts have this problem.
+	if runtime.GOOS == "windows" {
+		for _, w := range credentialMountWarnings(cfg.Volumes) {
+			fmt.Fprintln(os.Stderr, w)
+		}
+	}
+
 	return execCLI(rt, args)
+}
+
+// credentialMountWarnings returns one warning per config volume that mounts
+// an SSH or GnuPG directory. Bind mounts from a Windows host arrive as mode
+// 0777, which OpenSSH and GnuPG refuse; Docker Desktop documents this as
+// not configurable, so a warning is all ccodolo can offer.
+func credentialMountWarnings(vols []config.Volume) []string {
+	var warnings []string
+	for _, v := range vols {
+		switch path.Base(v.Container) {
+		case ".ssh", ".gnupg":
+			warnings = append(warnings, fmt.Sprintf(
+				"Warning: %s is bind-mounted from Windows; Docker Desktop shares files as mode 0777, which OpenSSH and GnuPG reject. Use HTTPS with a credential helper for git instead.",
+				v.Container))
+		}
+	}
+	return warnings
+}
+
+// mountArg formats a bind mount as --mount rather than -v: named fields
+// avoid the colon ambiguity of a Windows drive-letter path
+// (C:\proj:/workspace), and docker and Apple's container CLI accept the
+// same keys. Both CSV-parse the value, so a comma cannot be expressed, and
+// docker's encoding/csv parser also rejects a bare double quote. A Windows
+// profile directory can legally contain a comma, so the error names the
+// path. Docker splits a field on its first "="; Apple's parser does not
+// (FOLLOWUP.md).
+func mountArg(src, dst string, readOnly bool) (string, error) {
+	for _, p := range []string{src, dst} {
+		if err := checkMountPath(p); err != nil {
+			return "", err
+		}
+	}
+	arg := fmt.Sprintf("type=bind,source=%s,target=%s", src, dst)
+	if readOnly {
+		arg += ",readonly"
+	}
+	return arg, nil
+}
+
+// checkMountPath rejects the characters a --mount value cannot carry.
+func checkMountPath(p string) error {
+	if strings.ContainsAny(p, `,"`) {
+		return fmt.Errorf("mount path %q contains a comma or double quote, which the --mount syntax cannot express", p)
+	}
+	return nil
+}
+
+// CheckMounts validates the bind-mount sources Run will use, so a config
+// that cannot launch fails before the image build with the offending entry
+// named. Unlike -v, --mount does not create a missing host directory.
+func CheckMounts(cfg *config.Config, workdir, projectPath string) error {
+	if err := checkMountPath(workdir); err != nil {
+		return fmt.Errorf("workdir: %w", err)
+	}
+	if err := checkMountPath(projectPath); err != nil {
+		return fmt.Errorf("project directory: %w", err)
+	}
+	for _, v := range cfg.Volumes {
+		hostPath, err := config.ExpandHome(v.Host)
+		if err != nil {
+			return fmt.Errorf("expanding volume host path %q: %w", v.Host, err)
+		}
+		if _, err := os.Stat(hostPath); err != nil {
+			return fmt.Errorf("volume host path %q does not exist: %w", v.Host, err)
+		}
+		if err := checkMountPath(hostPath); err != nil {
+			return fmt.Errorf("volume host path %q: %w", v.Host, err)
+		}
+		if err := checkMountPath(v.Container); err != nil {
+			return fmt.Errorf("volume container path %q: %w", v.Container, err)
+		}
+	}
+	return nil
 }
 
 // runArgs assembles the argv after the binary name for launching a
@@ -98,44 +182,43 @@ func runArgs(
 	// Working directory.
 	args = append(args, "-w", containerWorkspace)
 
-	// Workdir mount.
-	args = append(args, "-v", fmt.Sprintf("%s:%s", workdir, containerWorkspace))
-
-	// Common mounts.
-	args = append(args, "-v", fmt.Sprintf("%s/commandhistory:/commandhistory", projectPath))
-	args = append(args, "-v", fmt.Sprintf("%s/common:/home/coder/project", projectPath))
-
-	// Agent config dir mount.
-	agentConfigPath := filepath.Join(projectPath, meta.ConfigDir)
-	args = append(args, "-v", fmt.Sprintf("%s:/home/coder/%s", agentConfigPath, meta.ConfigDir))
-
-	// Agent extra file mounts.
+	// Host paths go through filepath.Join so they are native on every
+	// platform; container paths are always Linux paths.
+	type bindMount struct {
+		src, dst string
+		readOnly bool
+	}
+	mounts := []bindMount{
+		{src: workdir, dst: containerWorkspace},
+		{src: filepath.Join(projectPath, "commandhistory"), dst: "/commandhistory"},
+		{src: filepath.Join(projectPath, "common"), dst: "/home/coder/project"},
+		{src: filepath.Join(projectPath, meta.ConfigDir), dst: "/home/coder/" + meta.ConfigDir},
+	}
 	for _, f := range meta.ExtraFiles {
 		filePath := filepath.Join(projectPath, f)
 		if _, err := os.Stat(filePath); err == nil {
-			args = append(args, "-v", fmt.Sprintf("%s:/home/coder/%s", filePath, f))
+			mounts = append(mounts, bindMount{src: filePath, dst: "/home/coder/" + f})
 		}
 	}
-
-	// Agent extra dir mounts.
 	for _, d := range meta.ExtraDirs {
 		dirPath := filepath.Join(projectPath, d)
 		if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
-			args = append(args, "-v", fmt.Sprintf("%s:/home/coder/%s", dirPath, d))
+			mounts = append(mounts, bindMount{src: dirPath, dst: "/home/coder/" + d})
 		}
 	}
-
-	// Config-defined volume mounts.
 	for _, v := range cfg.Volumes {
 		hostPath, err := config.ExpandHome(v.Host)
 		if err != nil {
 			return nil, fmt.Errorf("expanding volume host path %q: %w", v.Host, err)
 		}
-		mount := fmt.Sprintf("%s:%s", hostPath, v.Container)
-		if v.ReadOnly {
-			mount += ":ro"
+		mounts = append(mounts, bindMount{src: hostPath, dst: v.Container, readOnly: v.ReadOnly})
+	}
+	for _, m := range mounts {
+		arg, err := mountArg(m.src, m.dst, m.readOnly)
+		if err != nil {
+			return nil, err
 		}
-		args = append(args, "-v", mount)
+		args = append(args, "--mount", arg)
 	}
 
 	// Config-defined environment variables.
@@ -144,9 +227,10 @@ func runArgs(
 	}
 
 	// Passthrough env vars from the host shell. Docker reads the value of a
-	// bare `-e NAME` from its own environment (preserved by the unix.Exec in
-	// execCLI). Apple's container CLI is not documented to do the same, so
-	// for that backend the value is resolved host-side into -e NAME=value.
+	// bare `-e NAME` from its own environment (execCLI hands ours to it on
+	// every platform). Apple's container CLI is not documented to do the
+	// same, so for that backend the value is resolved host-side into
+	// -e NAME=value.
 	for _, name := range cfg.PassthroughVars {
 		v, ok := os.LookupEnv(name)
 		if !ok {
@@ -166,6 +250,11 @@ func runArgs(
 	// var the user already specified there. Unlike passthrough_vars, a
 	// var that's unset on the host is skipped silently: this is a
 	// convenience default, not an explicit user request.
+	//
+	// Windows Terminal sets neither variable, and docker's own fallback is
+	// TERM=xterm, which leaves agent TUIs in 16 colours. WT_SESSION
+	// identifies it and its capabilities are known, so fill them in.
+	windowsTerminalDefaults := map[string]string{"TERM": "xterm-256color", "COLORTERM": "truecolor"}
 	for _, name := range []string{"TERM", "COLORTERM"} {
 		if _, ok := cfg.Environment[name]; ok {
 			continue
@@ -173,7 +262,11 @@ func runArgs(
 		if slices.Contains(cfg.PassthroughVars, name) {
 			continue
 		}
-		if v := os.Getenv(name); v != "" {
+		v := os.Getenv(name)
+		if v == "" && os.Getenv("WT_SESSION") != "" {
+			v = windowsTerminalDefaults[name]
+		}
+		if v != "" {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", name, v))
 		}
 	}

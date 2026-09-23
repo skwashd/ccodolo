@@ -2,12 +2,10 @@ package docker
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
 	"github.com/skwashd/ccodolo/internal/config"
-	"golang.org/x/sys/unix"
 )
 
 // Runtime selects the container CLI backend. The two backends are modeled
@@ -63,17 +61,4 @@ func (r Runtime) CheckHost() error {
 			`runtime = "apple" requires Apple's container CLI: install it with "brew install --cask container" and start it with "container system start", or remove runtime = "apple" from ccodolo.toml to use Docker`)
 	}
 	return nil
-}
-
-// execCLI replaces the current process with the runtime CLI via unix.Exec,
-// giving it direct ownership of the terminal for interactive TUI apps.
-// On success, this function never returns.
-func execCLI(r Runtime, args []string) error {
-	bin := r.Binary()
-	path, err := exec.LookPath(bin)
-	if err != nil {
-		return fmt.Errorf("finding %s executable: %w", bin, err)
-	}
-
-	return unix.Exec(path, append([]string{bin}, args...), os.Environ())
 }

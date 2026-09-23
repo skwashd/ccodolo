@@ -30,6 +30,9 @@ components of the environment.
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) installed and running
+- Windows: Docker Desktop with the Hyper-V or WSL2 backend, run from Windows
+  Terminal or PowerShell — see [Windows](#windows) for the file sharing
+  setup and the known limitations
 - Experimental: on macOS 26 with Apple Silicon, [Apple's container CLI](https://github.com/apple/container)
   can replace Docker — see [Container runtime](#container-runtime-experimental)
 
@@ -49,6 +52,8 @@ go install github.com/skwashd/ccodolo@latest
 #    https://github.com/skwashd/ccodolo/releases/latest
 #    macOS: ccodolo_*_darwin_all.tar.gz  (universal binary, runs on Intel and Apple Silicon)
 #    Linux: ccodolo_*_linux_amd64.tar.gz or ccodolo_*_linux_arm64.tar.gz
+#    Windows: ccodolo_*_windows_amd64.zip or ccodolo_*_windows_arm64.zip
+#      (Expand-Archive the zip and put ccodolo.exe on your PATH)
 # 2. Extract and move to a directory in your PATH:
 tar xzf ccodolo_*.tar.gz
 sudo mv ccodolo /usr/local/bin/
@@ -659,6 +664,12 @@ container. To forward specific variables, for example API keys, add them to
 `passthrough_vars` (see [Passthrough env vars](#passthrough-env-vars)). To
 mount credential files, for example `~/.aws`, use `[[volumes]]` instead.
 
+A `[[volumes]]` host path must already exist: ccodolo passes it to the
+runtime as a `--mount` bind, which fails instead of creating an empty
+directory. Neither path may contain a comma or a double quote, which the
+`--mount` syntax cannot express. ccodolo checks both before it builds the
+image.
+
 ### Claude Code
 - **Config directory**: `.claude/`
 - **Setup**: Automatically prompted on first run
@@ -760,6 +771,46 @@ after that session's hygiene step had already run.
 **Fix**: run `ccodolo repair-worktrees` from anywhere in the repository (see
 [Git Worktrees](#git-worktrees)). Never run `git worktree prune` on the
 host before repairing.
+
+### Windows
+
+`ccodolo.exe` is a native Windows binary that drives Docker Desktop. The
+image it builds and runs is the same Linux image as on macOS and Linux.
+
+**Setup**
+
+- Docker Desktop with the Hyper-V backend (Windows Pro, Enterprise or
+  Education; the installer needs admin rights and adds users to the
+  `docker-users` group) or the WSL2 backend.
+- Under Settings → Resources → File sharing, both the project working
+  directory and `%USERPROFILE%\.ccodolo` must be shareable. If either is
+  not, `docker run` fails with a "mounts denied" error from Docker, not
+  from ccodolo. Hardened Docker Desktop can lock this list by policy, in
+  which case an administrator has to add the directories.
+- Run ccodolo from Windows Terminal, PowerShell or `cmd.exe`. Git Bash and
+  other MinTTY terminals do not give `docker run -it` a console, so the
+  prompts and the agent TUI do not work. ccodolo prints a warning when it
+  detects one; prefix the command with `winpty` or switch terminals.
+- Windows Terminal sets neither `TERM` nor `COLORTERM`. ccodolo forwards
+  `TERM=xterm-256color` and `COLORTERM=truecolor` when it detects Windows
+  Terminal (`WT_SESSION`); set either in `[environment]` to override.
+
+**Limitations**
+
+- SSH and GPG keys cannot be bind-mounted. Docker Desktop shares Windows
+  files as mode 0777 and documents this as not configurable, so OpenSSH
+  rejects any mounted private key and GnuPG rejects its home directory.
+  ccodolo warns when a `[[volumes]]` entry mounts `.ssh` or `.gnupg`. Use
+  HTTPS remotes with a credential helper or a token instead. SSH agent
+  forwarding from Docker Desktop is only available on macOS and Linux.
+- Files shared from Windows may not be owned by the container user. The
+  image sets git's `safe.directory` to `*` system-wide (on every platform)
+  so git does not refuse them with "dubious ownership".
+- Bind mounts cross a userspace file-sharing layer (gRPC-FUSE). Whole-tree
+  operations such as `git status`, searches and package installs are slower
+  than on Linux. There is no fix on the ccodolo side.
+- Release binaries are not code-signed. SmartScreen may warn on first run;
+  verify the download against `checksums.txt` on the release page.
 
 ## Migrating from the Shell Script
 

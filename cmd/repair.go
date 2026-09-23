@@ -114,8 +114,13 @@ func gitOutput(dir string, args ...string) (string, error) {
 func relativizeGitdirs(root string, dirs []string) int {
 	// A separate git dir sits at no fixed offset from the worktrees, so
 	// there is no relative form to write; leave those alone.
+	// git prints forward slashes even on Windows, so compare in slash form.
 	common, err := gitOutput(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-	if err != nil || common != filepath.Join(root, ".git") {
+	if err != nil {
+		return 0
+	}
+	common = filepath.ToSlash(filepath.Clean(common))
+	if common != filepath.ToSlash(filepath.Join(root, ".git")) {
 		return 0
 	}
 	prefix := common + "/worktrees/"

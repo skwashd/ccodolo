@@ -517,6 +517,18 @@ func TestValidate(t *testing.T) {
 		}
 	})
 
+	// A Linux container path has no drive letter; it must validate on a
+	// Windows host too (filepath.IsAbs would reject it there).
+	t.Run("absolute volume container path", func(t *testing.T) {
+		cfg := &Config{
+			Agent:   "claude",
+			Volumes: []Volume{{Host: "~/.aws", Container: "/home/coder/.aws"}},
+		}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
 	t.Run("empty agent is valid", func(t *testing.T) {
 		cfg := &Config{}
 		if err := Validate(cfg); err != nil {

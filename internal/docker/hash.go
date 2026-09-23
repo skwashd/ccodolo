@@ -85,7 +85,9 @@ func hashStagedFile(w io.Writer, f stagedFile) error {
 		if infoErr != nil {
 			return infoErr
 		}
-		return hashFile(w, filepath.Join(f.RelPath, rel), path, info.Mode())
+		// Slash form, like RelPath: the hash must agree across host
+		// platforms.
+		return hashFile(w, f.RelPath+"/"+filepath.ToSlash(rel), path, info.Mode())
 	})
 }
 

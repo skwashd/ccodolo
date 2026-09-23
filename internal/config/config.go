@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -407,8 +408,10 @@ func Validate(cfg *Config) error {
 		}
 	}
 
+	// Container paths are Linux paths on every host; filepath.IsAbs would
+	// reject "/home/coder/..." on Windows for lacking a drive letter.
 	for _, v := range cfg.Volumes {
-		if !filepath.IsAbs(v.Container) {
+		if !path.IsAbs(v.Container) {
 			return fmt.Errorf("volume container path must be absolute: %q", v.Container)
 		}
 	}

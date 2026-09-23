@@ -34,6 +34,13 @@ RUN apt update && apt upgrade -y \
   && touch /commandhistory/.bash_history /commandhistory/.zsh_history \
   && chown -R coder:coder /workspace /home/coder /commandhistory
 
+# Bind-mounted files can arrive owned by a uid other than coder's — on
+# Docker Desktop for Windows in particular — and git then refuses to touch
+# the repository ("dubious ownership"). Inside a throwaway sandbox the check
+# buys nothing, and without this both the agent's git calls and the startup
+# worktree hygiene (which exits quietly when git rev-parse fails) break.
+RUN git config --system --add safe.directory '*'
+
 # ── Root setup steps ─────────────────────────────────
 {{ range .RootSteps }}
 {{ . }}
