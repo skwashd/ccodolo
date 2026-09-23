@@ -10,11 +10,26 @@ on:
 permissions: {}
 
 jobs:
+  # Windows runners cannot run Linux containers, so that leg covers only
+  # the CLI, config and template layers — but on a real Windows filesystem
+  # and console, which is what catches path and TTY bugs cross-compiling
+  # cannot. Lint there is also what checks exec_windows.go. -race needs
+  # cgo and a C toolchain, so only the Linux leg runs the detector.
   go-validation:
-    name: Go
-    runs-on: ubuntu-24.04
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Go
+            os: ubuntu-24.04
+            test-flags: -race
+          - name: Go (windows)
+            os: windows-latest
+            test-flags: ""
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,7 +45,10 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        run: go test -race ./...
+        shell: bash
+        env:
+          TEST_FLAGS: ${{ matrix.test-flags }}
+        run: go test $TEST_FLAGS ./...
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
@@ -43,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, darwin]
+        goos: [linux, darwin, windows]
         goarch: [amd64, arm64]
     steps:
       - name: Checkout code

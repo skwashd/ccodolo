@@ -22,6 +22,7 @@ ccodolo/
 │       ├── updates.yml              # daily agent + tool version bumps (opens PRs)
 │       ├── validate.yml             # go vet, go test, golangci-lint, cross-platform build, docker image smoke test
 │       └── zizmor.yml               # GitHub Actions security scanning
+├── .golangci.yml                    # Default linters + gofmt as a formatter check
 ├── .goreleaser.yml                  # Cross-platform binaries + checksums + build attestation
 ├── go.mod / go.sum
 ├── main.go                          # Entrypoint → cmd.Execute()
@@ -43,11 +44,16 @@ ccodolo/
 │   │   ├── build_test.go
 │   │   ├── dockerfile.go            # Dockerfile template rendering
 │   │   ├── dockerfile_test.go
+│   │   ├── exec_unix.go             # execCLI: replace the process via execve (see Architecture Notes)
+│   │   ├── exec_windows.go          # execCLI: child process with inherited console (no execve on Windows)
 │   │   ├── hash.go                  # SHA-256 image tag computation
 │   │   ├── hash_test.go
 │   │   ├── hooks.go                 # Host-side startup-hook pre-flight warning
 │   │   ├── hooks_test.go
-│   │   └── run.go                   # docker run / docker exec
+│   │   ├── run.go                   # docker run / docker exec argv (--mount binds, env, TERM defaults)
+│   │   ├── run_test.go
+│   │   ├── runtime.go               # Runtime enum (docker/apple), host checks
+│   │   └── runtime_test.go
 │   ├── fsutil/
 │   │   ├── copy.go                  # CopyDir/CopyFile, mode-preserving
 │   │   └── copy_test.go
@@ -58,6 +64,7 @@ ccodolo/
 │   │   └── setup_test.go
 │   ├── tool/
 │   │   ├── custom_tools_test.go
+│   │   ├── readme_test.go           # Fails when the README Dev Tools table drifts from the catalog
 │   │   ├── tool.go                  # Tool catalog, dependency resolution
 │   │   └── tool_test.go
 │   └── updater/                     # Automated tool-version bumper (not in released binary)
@@ -96,11 +103,14 @@ Projects are stored in `~/.ccodolo/projects/<name>/` (gitignored).
 go vet ./...
 go test ./...
 golangci-lint run ./...
+GOOS=windows go build -o /dev/null ./...   # the binary ships for Windows; catch unix-only imports here
 ```
 
 ### Architecture Notes
 
-- The `ccodolo` binary is a cross-platform Go CLI using cobra for flags and charmbracelet/huh for the interactive TUI
+- The `ccodolo` binary is a cross-platform Go CLI (Linux, macOS, Windows) using cobra for flags and charmbracelet/huh for the interactive TUI
+- `execCLI` (hand the terminal to `docker`/`container`) is split by build tag. `exec_unix.go` replaces the process with execve — this is load-bearing, not a style choice: running the CLI as a child with forwarded stdio made agent TUIs unresponsive under Ghostty ([#29](https://github.com/skwashd/ccodolo/issues/29), commit `559c549`). Do not "unify" it back to `exec.Command`. `exec_windows.go` has no execve to use and runs a child; it is the one place that class of bug can recur, and CI cannot exercise it (see CI/CD), so a real Windows launch is part of the release check
+- Host paths and container paths are different things: container paths are always Linux paths, so inspect them with `path`, never `path/filepath` (`filepath.IsAbs("/home/coder")` is false on Windows). Host paths go through `filepath`. Bind mounts use `--mount type=bind,source=,target=` rather than `-v` because a Windows drive letter makes the colon form ambiguous, and both backends accept the same keys
 - `internal/docker` supports two container backends via the `Runtime` enum: `docker` (default) and `apple` (experimental, Apple's `container` CLI on macOS 26/Apple Silicon, opted into via `runtime = "apple"` in ccodolo.toml). The apple path cannot run in CI, so backend argv construction must stay in pure, unit-tested functions (`buildArgs`, `runArgs`, `parse*ContainerList`, `matchContainer`)
 - Each image contains exactly one agent — no start-agent dispatch script
 - Dockerfile is generated dynamically from `embedded/Dockerfile.tmpl` using `text/template`
@@ -127,6 +137,7 @@ Before committing:
 2. **Build test**: `go build -o /dev/null .`
 3. **Runtime test**: Create test project and verify agent launches
 4. **Multi-agent test**: Test with 2+ agents if touching agent selection logic
+5. **Windows**: CI runs vet/test/lint on `windows-latest` but cannot launch a Linux container there. A change to `exec_windows.go`, the mount argv, or TTY detection needs a manual launch on a Windows machine with Docker Desktop — including typing into the agent TUI (the #29 symptom)
 
 ```bash
 # Quick test flow
@@ -165,7 +176,7 @@ exit
 
 ## CI/CD
 
-- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint`, plus a cross-platform build matrix (`linux,darwin` × `amd64,arm64`), and a Docker image smoke test that builds a `claude` + node/go/python image via `ccodolo --build-only` and runs it to verify the toolchain is launchable inside the squashed image
+- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint` on Ubuntu; the same (minus `-race`) on `windows-latest`, which is the only lint coverage `exec_windows.go` gets; a cross-platform build matrix (`linux,darwin,windows` × `amd64,arm64`); and a Docker image smoke test that builds a `claude` + node/go/python image via `ccodolo --build-only` and runs it to verify the toolchain is launchable inside the squashed image. The smoke test stays on Ubuntu for good: GitHub's Windows runners have no nested virtualisation, so they cannot run Linux containers
 - **release.yml**: Triggered by `v*` tags — runs goreleaser to build cross-platform binaries + `checksums.txt`, and attests the checksums (`actions/attest`); artifacts published to GitHub releases
 - **zizmor.yml**: GitHub Actions security scanning
 - **updates.yml**: Daily cron (`7 20 * * *`) — two jobs:
@@ -203,6 +214,7 @@ go run ./internal/updater -allow-unverified
 - [ ] `go vet ./...` passes
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run ./...` passes
+- [ ] `GOOS=windows go build -o /dev/null ./...` passes
 - [ ] Tested with at least one agent end-to-end
 - [ ] README.md updated if adding features/tools
 - [ ] Backward compatible with existing projects

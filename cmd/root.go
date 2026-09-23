@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 
 	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	"github.com/skwashd/ccodolo/internal/agent"
@@ -37,10 +39,10 @@ var rootCmd = &cobra.Command{
 	Short: "Multi-agent coding environment in Docker",
 	Long:  "CCoDoLo launches sandboxed Docker containers for AI coding assistants with isolated project environments.",
 	// Accept arbitrary args after --.
-	Args:              cobra.ArbitraryArgs,
+	Args:               cobra.ArbitraryArgs,
 	DisableFlagParsing: false,
-	SilenceUsage:      true,
-	RunE:              runRoot,
+	SilenceUsage:       true,
+	RunE:               runRoot,
 }
 
 func init() {
@@ -76,6 +78,12 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		if flagBuildOnly {
 			return fmt.Errorf("--reconfigure and --build-only are mutually exclusive")
 		}
+	}
+
+	// --build-only never prompts or launches a container, so it needs no
+	// console.
+	if !flagBuildOnly {
+		warnIfMinTTY()
 	}
 
 	// Resolve project path.
@@ -238,6 +246,11 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return docker.Exec(rt, flagProject, workdir)
 	}
 
+	// A bad mount should fail before the slow image build, not after it.
+	if err := docker.CheckMounts(rt, cfg, workdir, projectPath); err != nil {
+		return err
+	}
+
 	// Build image.
 	imageTag, err := docker.Build(rt, cfg, flagProject, projectPath, flagRebuild)
 	if err != nil {
@@ -280,13 +293,27 @@ func runToolTUI(cfg *config.Config) ([]config.ToolEntry, error) {
 	return resolveAndPinTools(selectedTools, existingVersions)
 }
 
-// isInteractive returns true if stdin is a terminal.
+// isInteractive returns true if stdin is a terminal. Stdout is deliberately
+// not checked: prompts and huh forms render to stderr, so a redirected
+// stdout (a log file, `op run --`) must not silently skip a confirmation.
+// term.IsTerminal rather than os.File.Stat because the latter does not
+// reliably report the character-device bit on Windows (golang/go#23123).
 func isInteractive() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
+	return term.IsTerminal(os.Stdin.Fd())
+}
+
+// warnIfMinTTY prints a hint when ccodolo runs under Git Bash / MSYS2
+// (MSYSTEM is set) without a Windows console on stdin. MinTTY exposes a
+// pipe, so the prompts, the TUI and `docker run -it` would otherwise all
+// fail with unhelpful errors.
+func warnIfMinTTY() {
+	if runtime.GOOS != "windows" || os.Getenv("MSYSTEM") == "" {
+		return
 	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	if term.IsTerminal(os.Stdin.Fd()) {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Warning: stdin is not a Windows console (Git Bash/MinTTY?). Interactive prompts and the agent TUI need one: run ccodolo from Windows Terminal or PowerShell, or prefix the command with winpty.")
 }
 
 // parseToolFlag parses a comma-separated tool list with optional version pinning.
@@ -480,7 +507,7 @@ func runToolSelectTUI(preSelected map[string]bool) ([]string, error) {
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select dev tools to install").
-				Height(len(options)+2).
+				Height(len(options) + 2).
 				Options(options...).
 				Value(&selectedTools),
 		),

@@ -52,6 +52,12 @@ func TestRenderDockerfileClaude(t *testing.T) {
 		t.Error("should contain FROM scratch for squash")
 	}
 
+	// Bind mounts from Windows hosts can be owned by another uid; git must
+	// not refuse them, and the startup hygiene script depends on that too.
+	if !strings.Contains(result, "RUN git config --system --add safe.directory '*'") {
+		t.Error("should mark every directory as safe for git")
+	}
+
 	// Claude is npm-based, so nodejs should be auto-added.
 	if !strings.Contains(result, "# Tool: nodejs") {
 		t.Error("should auto-add nodejs for claude agent")

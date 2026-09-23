@@ -7,6 +7,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -15,6 +16,13 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
+
+# GoReleaser's default is tar.gz for every platform, Windows included.
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 universal_binaries:
   - id: ccodolo-universal

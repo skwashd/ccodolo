@@ -3,8 +3,18 @@ package fsutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+// skipModeCheckOnWindows skips tests that assert Unix permission bits:
+// Windows has no execute bit and Go reports every file as 0666 or 0444.
+func skipModeCheckOnWindows(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not preserved on Windows")
+	}
+}
 
 func TestCopyDir(t *testing.T) {
 	src := t.TempDir()
@@ -39,6 +49,7 @@ func TestCopyDir(t *testing.T) {
 }
 
 func TestCopyDirPreservesFileMode(t *testing.T) {
+	skipModeCheckOnWindows(t)
 	src := t.TempDir()
 	dst := t.TempDir()
 
@@ -61,6 +72,7 @@ func TestCopyDirPreservesFileMode(t *testing.T) {
 }
 
 func TestCopyDirForcesDirMode(t *testing.T) {
+	skipModeCheckOnWindows(t)
 	src := t.TempDir()
 	dst := t.TempDir()
 
@@ -105,6 +117,7 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestCopyFilePreservesMode(t *testing.T) {
+	skipModeCheckOnWindows(t)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "run.sh")
 	dst := filepath.Join(dir, "run-copy.sh")
