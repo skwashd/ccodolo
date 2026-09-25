@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.12.17",
+		DefaultTag:  "0.12.18",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -386,7 +386,7 @@ var builtinCatalog = []Tool{
 		Name:         "cloudflare-cli",
 		Category:     "cloud",
 		Description:  "Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more",
-		DefaultTag:   "0.12.0",
+		DefaultTag:   "0.13.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g cf@{{.Tag}}",
@@ -417,7 +417,7 @@ var builtinCatalog = []Tool{
 		Name:        "kubectl",
 		Category:    "cloud",
 		Description: "Kubernetes CLI",
-		DefaultTag:  "1.37.0",
+		DefaultTag:  "1.37.1",
 		Instructions: []string{
 			`RUN curl -fsSL "https://dl.k8s.io/release/v{{.Tag}}/bin/linux/$(dpkg --print-architecture)/kubectl" -o /usr/local/bin/kubectl \` + "\n" +
 				`  && chmod +x /usr/local/bin/kubectl`,
@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.16.3",
+		DefaultTag:  "1.16.4",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.136.3",
+		DefaultTag:   "4.137.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -773,7 +773,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.75",
+		DefaultTag:  "0.2.77",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
