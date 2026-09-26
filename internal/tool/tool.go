@@ -386,7 +386,7 @@ var builtinCatalog = []Tool{
 		Name:         "cloudflare-cli",
 		Category:     "cloud",
 		Description:  "Cloudflare CLI (cf) — Workers, Pages, DNS, D1, R2, KV, and more",
-		DefaultTag:   "0.13.0",
+		DefaultTag:   "0.14.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g cf@{{.Tag}}",
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.137.0",
+		DefaultTag:   "4.139.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -656,7 +656,7 @@ var builtinCatalog = []Tool{
 		Name:         "golangci-lint",
 		Category:     "utils",
 		Description:  "Go linters aggregator",
-		DefaultTag:   "2.13.2",
+		DefaultTag:   "2.14.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v{{.Tag}}/golangci-lint-{{.Tag}}-linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
