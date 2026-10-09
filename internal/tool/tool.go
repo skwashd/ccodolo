@@ -233,7 +233,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "public.ecr.aws/docker/library/rust",
-		DefaultTag:  "1.98.1",
+		DefaultTag:  "1.99.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.9.1",
+		DefaultTag:   "12.10.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -318,7 +318,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.7.0",
+		DefaultTag:   "1.7.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.147.0",
+		DefaultTag:   "4.148.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
