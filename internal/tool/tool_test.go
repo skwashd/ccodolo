@@ -166,8 +166,8 @@ func TestDefaultVersion(t *testing.T) {
 		t.Errorf("expected 1.27, got %q", golang.DefaultVersion())
 	}
 	java, _ := Get("java")
-	if java.DefaultVersion() != "26" {
-		t.Errorf("expected 26, got %q", java.DefaultVersion())
+	if java.DefaultVersion() != "27" {
+		t.Errorf("expected 27, got %q", java.DefaultVersion())
 	}
 }
 
