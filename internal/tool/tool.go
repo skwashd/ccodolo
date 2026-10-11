@@ -479,6 +479,18 @@ var builtinCatalog = []Tool{
 
 	// ── database ──────────────────────────────────────────────────────────
 	{
+		Name:        "duckdb",
+		Category:    "database",
+		Description: "DuckDB analytical database CLI",
+		SourceImage: "duckdb/duckdb",
+		DefaultTag:  "1.5.6",
+		Instructions: []string{
+			"COPY --from=%s /duckdb /usr/local/bin/duckdb",
+		},
+		UpdateSource: UpdateDockerHub,
+		UpdateRef:    "duckdb/duckdb",
+	},
+	{
 		Name:        "mysql-client",
 		Category:    "database",
 		Description: "MySQL/MariaDB client",
