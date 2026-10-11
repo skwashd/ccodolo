@@ -349,6 +349,7 @@ reproducible builds. Select tools during project creation in the TUI, with
 | `terraform-docs` | Cloud / IaC | terraform-docs documentation generator |
 | `tflint` | Cloud / IaC | TFLint Terraform linter |
 | `wrangler` | Cloud / IaC | Cloudflare Workers CLI |
+| `duckdb` | Database Clients | DuckDB analytical database CLI |
 | `mysql-client` | Database Clients | MySQL/MariaDB client |
 | `postgresql-client` | Database Clients | PostgreSQL client |
 | `redis-cli` | Database Clients | Redis CLI client |
