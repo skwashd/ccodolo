@@ -674,16 +674,22 @@ var builtinCatalog = []Tool{
 		},
 	},
 	{
-		Name:         "linear-cli",
-		Category:     "utils",
-		Description:  "Linear CLI (unofficial)",
-		DefaultTag:   "2.6.0",
-		Dependencies: []string{"nodejs"},
+		Name:        "linear-cli",
+		Category:    "utils",
+		Description: "Linear CLI (unofficial)",
+		DefaultTag:  "3.0.0",
 		Instructions: []string{
-			"RUN npm install -g @schpet/linear-cli@{{.Tag}}",
+			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
+				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
+				`  && PKG="linear-${ARCH}-unknown-linux-gnu" \` + "\n" +
+				`  && curl -fsSL "https://github.com/schpet/linear-cli/releases/download/v{{.Tag}}/${PKG}.tar.xz" -o "/tmp/${PKG}.tar.xz" \` + "\n" +
+				`  && curl -fsSL "https://github.com/schpet/linear-cli/releases/download/v{{.Tag}}/${PKG}.tar.xz.sha256" -o "/tmp/${PKG}.tar.xz.sha256" \` + "\n" +
+				`  && (cd /tmp && sha256sum -c "${PKG}.tar.xz.sha256") \` + "\n" +
+				`  && tar xJf "/tmp/${PKG}.tar.xz" -C /usr/local/bin --strip-components=1 "${PKG}/linear" \` + "\n" +
+				`  && rm "/tmp/${PKG}.tar.xz" "/tmp/${PKG}.tar.xz.sha256"`,
 		},
-		UpdateSource: UpdateNPM,
-		UpdateRef:    "@schpet/linear-cli",
+		UpdateSource: UpdateGitHub,
+		UpdateRef:    "schpet/linear-cli",
 	},
 	{
 		Name:        "lychee",

@@ -403,7 +403,6 @@ These tools install their dependencies automatically:
 - `playwright-cli` installs `playwright`
 - `lighthouse` installs `nodejs` and `chromium`
 - `mermaid-cli` installs `nodejs` and `chromium`
-- `linear-cli` installs `nodejs`
 - `wrangler` installs `nodejs`
 - `readwise` installs `nodejs`
 - `youtube-transcript-api` installs `python`
