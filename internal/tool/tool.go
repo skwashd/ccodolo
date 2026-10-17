@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:         "golangci-lint",
 		Category:     "utils",
 		Description:  "Go linters aggregator",
-		DefaultTag:   "2.14.0",
+		DefaultTag:   "2.15.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v{{.Tag}}/golangci-lint-{{.Tag}}-linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
