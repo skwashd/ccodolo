@@ -233,7 +233,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "docker.io/library/rust",
-		DefaultTag:  "1.99.0",
+		DefaultTag:  "1.99.1",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -294,7 +294,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.81.0",
+		DefaultTag:  "0.82.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.12.0",
+		DefaultTag:   "12.14.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.13.0",
+		DefaultTag:  "0.13.1",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -410,7 +410,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.3.0/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.3.1/scripts/get-helm-4 | bash",
 		},
 	},
 	{
@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.16.5",
+		DefaultTag:  "1.16.6",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.149.0",
+		DefaultTag:   "4.151.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -528,7 +528,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.167.0",
+		DefaultTag:   "0.168.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -541,7 +541,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.64.0",
+		DefaultTag:   "1.64.1",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -668,7 +668,7 @@ var builtinCatalog = []Tool{
 		Name:         "golangci-lint",
 		Category:     "utils",
 		Description:  "Go linters aggregator",
-		DefaultTag:   "2.14.0",
+		DefaultTag:   "2.15.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v{{.Tag}}/golangci-lint-{{.Tag}}-linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -864,7 +864,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.30.1",
+		DefaultTag:  "1.31.1",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
