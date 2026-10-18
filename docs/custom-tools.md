@@ -31,7 +31,7 @@ ignores the file. Your build still proceeds with the built-in catalog.
     {
       "name": "python",
       "description": "Python 3.11 (corporate-pinned)",
-      "source_image": "public.ecr.aws/docker/library/python",
+      "source_image": "docker.io/library/python",
       "default_tag": "3.11",
       "tag_suffix": "-slim",
       "instructions": [

@@ -48,7 +48,7 @@ type Tool struct {
 	Name         string            `json:"name"`                    // unique identifier, e.g. "python"
 	Category     string            `json:"category,omitempty"`      // "runtime", "package-manager", "cloud", "custom"
 	Description  string            `json:"description,omitempty"`   // shown in TUI
-	SourceImage  string            `json:"source_image,omitempty"`  // Docker image to COPY from, e.g. "public.ecr.aws/docker/library/python"
+	SourceImage  string            `json:"source_image,omitempty"`  // Docker image to COPY from, e.g. "docker.io/library/python"
 	DefaultTag   string            `json:"default_tag,omitempty"`   // e.g. "3.13-slim"
 	TagSuffix    string            `json:"tag_suffix,omitempty"`    // image variant suffix, e.g. "-slim", appended to user-provided version
 	Instructions []string          `json:"instructions"`            // Dockerfile lines (COPY, RUN, ENV)
@@ -136,7 +136,7 @@ var builtinCatalog = []Tool{
 		Name:        "golang",
 		Category:    "runtime",
 		Description: "Go",
-		SourceImage: "public.ecr.aws/docker/library/golang",
+		SourceImage: "docker.io/library/golang",
 		DefaultTag:  "1.27",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/go /usr/local/go",
@@ -149,7 +149,7 @@ var builtinCatalog = []Tool{
 		Name:        "java",
 		Category:    "runtime",
 		Description: "Java (Eclipse Temurin) JDK",
-		SourceImage: "public.ecr.aws/docker/library/eclipse-temurin",
+		SourceImage: "docker.io/library/eclipse-temurin",
 		DefaultTag:  "27",
 		TagSuffix:   "-jdk",
 		Instructions: []string{
@@ -166,7 +166,7 @@ var builtinCatalog = []Tool{
 		Name:        "nodejs",
 		Category:    "runtime",
 		Description: "Node.js",
-		SourceImage: "public.ecr.aws/docker/library/node",
+		SourceImage: "docker.io/library/node",
 		DefaultTag:  "26",
 		TagSuffix:   "-slim",
 		Instructions: []string{
@@ -182,7 +182,7 @@ var builtinCatalog = []Tool{
 		Name:        "php",
 		Category:    "runtime",
 		Description: "PHP",
-		SourceImage: "public.ecr.aws/docker/library/php",
+		SourceImage: "docker.io/library/php",
 		DefaultTag:  "8.5",
 		TagSuffix:   "-cli",
 		Instructions: []string{
@@ -197,7 +197,7 @@ var builtinCatalog = []Tool{
 		Name:        "python",
 		Category:    "runtime",
 		Description: "Python",
-		SourceImage: "public.ecr.aws/docker/library/python",
+		SourceImage: "docker.io/library/python",
 		DefaultTag:  "3.14",
 		TagSuffix:   "-slim",
 		Instructions: []string{
@@ -214,7 +214,7 @@ var builtinCatalog = []Tool{
 		Name:        "ruby",
 		Category:    "runtime",
 		Description: "Ruby",
-		SourceImage: "public.ecr.aws/docker/library/ruby",
+		SourceImage: "docker.io/library/ruby",
 		DefaultTag:  "4.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
@@ -232,7 +232,7 @@ var builtinCatalog = []Tool{
 		Name:        "rust",
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
-		SourceImage: "public.ecr.aws/docker/library/rust",
+		SourceImage: "docker.io/library/rust",
 		DefaultTag:  "1.99.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
@@ -253,7 +253,7 @@ var builtinCatalog = []Tool{
 		Name:         "composer",
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
-		SourceImage:  "public.ecr.aws/docker/library/composer",
+		SourceImage:  "docker.io/library/composer",
 		DefaultTag:   "2.10.3",
 		Dependencies: []string{"php"},
 		Instructions: []string{
@@ -266,7 +266,7 @@ var builtinCatalog = []Tool{
 		Name:         "gradle",
 		Category:     "package-manager",
 		Description:  "Gradle build tool",
-		SourceImage:  "public.ecr.aws/docker/library/gradle",
+		SourceImage:  "docker.io/library/gradle",
 		DefaultTag:   "jdk21",
 		Dependencies: []string{"java"},
 		Instructions: []string{
@@ -278,7 +278,7 @@ var builtinCatalog = []Tool{
 		Name:         "maven",
 		Category:     "package-manager",
 		Description:  "Apache Maven",
-		SourceImage:  "public.ecr.aws/docker/library/maven",
+		SourceImage:  "docker.io/library/maven",
 		DefaultTag:   "3-eclipse-temurin-21",
 		Dependencies: []string{"java"},
 		Instructions: []string{

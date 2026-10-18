@@ -23,7 +23,7 @@ func TestRenderDockerfileClaude(t *testing.T) {
 	}
 
 	// Should contain base image.
-	if !strings.Contains(result, "FROM public.ecr.aws/docker/library/debian:trixie-slim") {
+	if !strings.Contains(result, "FROM docker.io/library/debian:trixie-slim") {
 		t.Error("should contain base image")
 	}
 

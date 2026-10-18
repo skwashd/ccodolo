@@ -235,10 +235,10 @@ func TestResolveUnknownTool(t *testing.T) {
 
 func TestResolvedToolImageRef(t *testing.T) {
 	rt := ResolvedTool{
-		Tool: Tool{SourceImage: "public.ecr.aws/docker/library/python"},
+		Tool: Tool{SourceImage: "docker.io/library/python"},
 		Tag:  "3.14-slim",
 	}
-	expected := "public.ecr.aws/docker/library/python:3.14-slim"
+	expected := "docker.io/library/python:3.14-slim"
 	if got := rt.ImageRef(); got != expected {
 		t.Errorf("ImageRef() = %q, want %q", got, expected)
 	}
@@ -290,7 +290,7 @@ func TestRenderInstructionsTemplateVersion(t *testing.T) {
 	if !strings.Contains(libLine, "/usr/local/lib/python3.14 /usr/local/lib/python3.14") {
 		t.Errorf("expected {{.Version}} to expand to 3.14, got: %s", libLine)
 	}
-	if !strings.Contains(libLine, "public.ecr.aws/docker/library/python:3.14-slim") {
+	if !strings.Contains(libLine, "docker.io/library/python:3.14-slim") {
 		t.Errorf("expected COPY --from to reference python:3.14-slim, got: %s", libLine)
 	}
 }
@@ -316,7 +316,7 @@ func TestRenderInstructionsTemplateVersionOverride(t *testing.T) {
 	if !strings.Contains(libLine, "/usr/local/lib/python3.12 /usr/local/lib/python3.12") {
 		t.Errorf("expected {{.Version}} to expand to 3.12, got: %s", libLine)
 	}
-	if !strings.Contains(libLine, "public.ecr.aws/docker/library/python:3.12-slim") {
+	if !strings.Contains(libLine, "docker.io/library/python:3.12-slim") {
 		t.Errorf("expected COPY --from to reference python:3.12-slim, got: %s", libLine)
 	}
 }
