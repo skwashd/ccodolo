@@ -364,7 +364,7 @@ func TestIntegrationOverridePython(t *testing.T) {
 			Name:         "python",
 			DefaultTag:   "3.11-slim",
 			TagSuffix:    "-slim",
-			SourceImage:  "public.ecr.aws/docker/library/python",
+			SourceImage:  "docker.io/library/python",
 			Instructions: []string{"COPY --from=%s /usr/local/bin/python3 /usr/local/bin/"},
 		},
 	}
@@ -402,7 +402,7 @@ func TestIntegrationIgnoreAndReplaceNodejs(t *testing.T) {
 			Name:         "nodejs",
 			DefaultTag:   "20-slim",
 			TagSuffix:    "-slim",
-			SourceImage:  "public.ecr.aws/docker/library/node",
+			SourceImage:  "docker.io/library/node",
 			Instructions: []string{"COPY --from=%s /usr/local/bin/node /usr/local/bin/node"},
 		},
 	}
