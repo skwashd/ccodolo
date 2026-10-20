@@ -198,7 +198,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Python",
 		SourceImage: "docker.io/library/python",
-		DefaultTag:  "3.14",
+		DefaultTag:  "3.15",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/lib/python{{.Version}} /usr/local/lib/python{{.Version}}",
@@ -617,7 +617,7 @@ var builtinCatalog = []Tool{
 		Category:    "testing",
 		Description: "Obscura headless browser for AI agents and web scraping",
 		SourceImage: "h4ckf0r0day/obscura",
-		DefaultTag:  "0.2.4",
+		DefaultTag:  "0.2.5",
 		Instructions: []string{
 			"COPY --from=%s /obscura /usr/local/bin/obscura",
 		},
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.2.79",
+		DefaultTag:  "0.3.0",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
