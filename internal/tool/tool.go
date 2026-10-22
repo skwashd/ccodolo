@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.16.6",
+		DefaultTag:  "1.17.0",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
