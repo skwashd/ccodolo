@@ -57,6 +57,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagReconfigure, "reconfigure", false, "Update agent and tools for an existing project")
 
 	_ = rootCmd.MarkFlagRequired("project")
+	_ = rootCmd.RegisterFlagCompletionFunc("project", completeProjects)
+	_ = rootCmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(agent.AllNames(), cobra.ShellCompDirectiveNoFileComp))
 
 	rootCmd.AddCommand(versionCmd)
 }
@@ -667,6 +669,22 @@ func showConfigDiff(oldAgent string, oldTools []config.ToolEntry, newCfg *config
 	}
 
 	return hasChanges
+}
+
+// completeProjects offers existing project names for --project. New project
+// names can't be predicted, so it never falls back to file completion.
+func completeProjects(_ *cobra.Command, _ []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	names, err := config.ListProjects()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	var matches []cobra.Completion
+	for _, name := range names {
+		if strings.HasPrefix(name, toComplete) {
+			matches = append(matches, name)
+		}
+	}
+	return matches, cobra.ShellCompDirectiveNoFileComp
 }
 
 // dirExists returns true if the path exists and is a directory.
