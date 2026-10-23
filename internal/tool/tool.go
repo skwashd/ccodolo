@@ -483,7 +483,7 @@ var builtinCatalog = []Tool{
 		Category:    "database",
 		Description: "DuckDB analytical database CLI",
 		SourceImage: "duckdb/duckdb",
-		DefaultTag:  "1.5.6",
+		DefaultTag:  "2.0.0",
 		Instructions: []string{
 			"COPY --from=%s /duckdb /usr/local/bin/duckdb",
 		},
