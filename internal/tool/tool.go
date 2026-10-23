@@ -98,7 +98,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.4.3",
+		DefaultTag:  "1.4.4",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
@@ -294,7 +294,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.82.1",
+		DefaultTag:  "0.83.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.13.4",
+		DefaultTag:  "0.13.5",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -454,7 +454,7 @@ var builtinCatalog = []Tool{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.64.0",
+		DefaultTag:   "0.65.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.151.3",
+		DefaultTag:   "4.152.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -689,7 +689,7 @@ var builtinCatalog = []Tool{
 		Name:        "linear-cli",
 		Category:    "utils",
 		Description: "Linear CLI (unofficial)",
-		DefaultTag:  "3.0.0",
+		DefaultTag:  "3.1.0",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -767,7 +767,7 @@ var builtinCatalog = []Tool{
 		Name:        "pinact",
 		Category:    "utils",
 		Description: "Pin GitHub Actions versions",
-		DefaultTag:  "5.0.0",
+		DefaultTag:  "5.0.1",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin pinact`,
@@ -846,7 +846,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.08.19",
+		DefaultTag:   "2026.10.21",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
