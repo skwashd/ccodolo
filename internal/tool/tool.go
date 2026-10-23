@@ -689,7 +689,7 @@ var builtinCatalog = []Tool{
 		Name:        "linear-cli",
 		Category:    "utils",
 		Description: "Linear CLI (unofficial)",
-		DefaultTag:  "3.0.0",
+		DefaultTag:  "3.1.0",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
