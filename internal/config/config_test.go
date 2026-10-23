@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -741,5 +742,39 @@ func TestExpandHome(t *testing.T) {
 	}
 	if got != "relative" {
 		t.Errorf("ExpandHome('relative') = %q, want 'relative'", got)
+	}
+}
+
+func TestListProjects(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads this on Windows
+
+	// No projects directory yet: empty, not an error.
+	got, err := ListProjects()
+	if err != nil {
+		t.Fatalf("ListProjects() with no projects dir: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("ListProjects() = %v, want empty", got)
+	}
+
+	projects := filepath.Join(fakeHome, ".ccodolo", "projects")
+	for _, name := range []string{"zeta", "alpha"} {
+		if err := os.MkdirAll(filepath.Join(projects, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Stray files are not projects.
+	if err := os.WriteFile(filepath.Join(projects, ".DS_Store"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err = ListProjects()
+	if err != nil {
+		t.Fatalf("ListProjects(): %v", err)
+	}
+	if want := []string{"alpha", "zeta"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("ListProjects() = %v, want %v", got, want)
 	}
 }

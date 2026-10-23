@@ -161,11 +161,43 @@ func ProjectConfigPath(projectPath string) string {
 
 // ProjectPath returns the on-disk directory for a project, given its name.
 func ProjectPath(name string) (string, error) {
-	home, err := os.UserHomeDir()
+	dir, err := ProjectsDir()
 	if err != nil {
-		return "", fmt.Errorf("getting home directory: %w", err)
+		return "", err
 	}
-	return filepath.Join(home, ".ccodolo", "projects", name), nil
+	return filepath.Join(dir, name), nil
+}
+
+// ProjectsDir returns the directory that holds every project.
+func ProjectsDir() (string, error) {
+	dir, err := GlobalConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "projects"), nil
+}
+
+// ListProjects returns the names of existing projects, sorted. A missing
+// projects directory means no projects, not an error.
+func ListProjects() ([]string, error) {
+	dir, err := ProjectsDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading projects directory: %w", err)
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	return names, nil
 }
 
 // CommonDir returns the common/ directory beside a project's ccodolo.toml.

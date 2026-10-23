@@ -129,6 +129,20 @@ flag (defaults to the current directory); any directory inside the
 repository works, since the worktree conventions are resolved from the
 repository root.
 
+The `completion` subcommand prints a shell completion script for `bash`,
+`zsh`, `fish`, or `powershell`. With it loaded, `--project <TAB>` completes
+the names of existing projects and `--agent <TAB>` completes the supported
+agents. The Homebrew cask installs the bash, zsh, and fish scripts for you;
+they load if your shell is set up for
+[Homebrew completions](https://docs.brew.sh/Shell-Completion). For other
+installs, load the script yourself. For example, add this to `~/.zshrc`:
+
+```zsh
+source <(ccodolo completion zsh)
+```
+
+Run `ccodolo completion <shell> --help` for the setup steps for each shell.
+
 `--reconfigure` cannot combine with `--create-new`, `--exec`, or
 `--build-only`. If you run `--reconfigure` with no terminal attached, for
 example inside a script, you must also pass `--agent`, `--tools`, or both.

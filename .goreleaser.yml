@@ -1,5 +1,16 @@
 version: 2
 
+# Completion scripts are platform-independent, so generate them once with the
+# host toolchain. File names are what each shell's loader looks for: bash
+# matches the command name, zsh wants _<command>, fish wants <command>.fish.
+before:
+  hooks:
+    - rm -rf completions
+    - mkdir completions
+    - sh -c 'go run . completion bash > completions/ccodolo'
+    - sh -c 'go run . completion zsh > completions/_ccodolo'
+    - sh -c 'go run . completion fish > completions/ccodolo.fish'
+
 builds:
   - id: ccodolo
     env:
@@ -20,6 +31,12 @@ builds:
 # GoReleaser's default is tar.gz for every platform, Windows included.
 archives:
   - formats: [tar.gz]
+    # Setting files replaces GoReleaser's default list, so keep LICENSE and
+    # README alongside the completions.
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -60,6 +77,10 @@ homebrew_casks:
   - name: ccodolo
     binaries:
       - ccodolo
+    completions:
+      bash: completions/ccodolo
+      zsh: completions/_ccodolo
+      fish: completions/ccodolo.fish
     repository:
       owner: skwashd
       name: homebrew-tap
