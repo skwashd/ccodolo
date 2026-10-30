@@ -98,7 +98,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.4.3",
+		DefaultTag:  "1.4.4",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
@@ -254,7 +254,7 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "docker.io/library/composer",
-		DefaultTag:   "2.10.3",
+		DefaultTag:   "2.11.0",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
@@ -294,7 +294,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.82.1",
+		DefaultTag:  "0.83.0",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.15.0",
+		DefaultTag:   "12.16.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.13.4",
+		DefaultTag:  "0.13.6",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -417,7 +417,7 @@ var builtinCatalog = []Tool{
 		Name:        "kubectl",
 		Category:    "cloud",
 		Description: "Kubernetes CLI",
-		DefaultTag:  "1.37.1",
+		DefaultTag:  "1.37.2",
 		Instructions: []string{
 			`RUN curl -fsSL "https://dl.k8s.io/release/v{{.Tag}}/bin/linux/$(dpkg --print-architecture)/kubectl" -o /usr/local/bin/kubectl \` + "\n" +
 				`  && chmod +x /usr/local/bin/kubectl`,
@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.17.0",
+		DefaultTag:  "1.17.1",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -454,7 +454,7 @@ var builtinCatalog = []Tool{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.64.0",
+		DefaultTag:   "0.65.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.151.3",
+		DefaultTag:   "4.156.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -528,7 +528,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.168.0",
+		DefaultTag:   "0.169.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -585,7 +585,7 @@ var builtinCatalog = []Tool{
 		Name:         "lighthouse",
 		Category:     "testing",
 		Description:  "Google Lighthouse web page auditing CLI",
-		DefaultTag:   "13.5.0",
+		DefaultTag:   "13.6.0",
 		Dependencies: []string{"nodejs", "chromium"},
 		Instructions: []string{
 			// Pre-seed the first-run error-reporting preference so `coder` is
@@ -653,7 +653,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.103.0",
+		DefaultTag:  "2.103.3",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -689,7 +689,7 @@ var builtinCatalog = []Tool{
 		Name:        "linear-cli",
 		Category:    "utils",
 		Description: "Linear CLI (unofficial)",
-		DefaultTag:  "3.0.0",
+		DefaultTag:  "3.1.0",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -767,7 +767,7 @@ var builtinCatalog = []Tool{
 		Name:        "pinact",
 		Category:    "utils",
 		Description: "Pin GitHub Actions versions",
-		DefaultTag:  "5.0.0",
+		DefaultTag:  "5.0.2",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin pinact`,
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.3.0",
+		DefaultTag:  "0.3.2",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -846,7 +846,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.08.19",
+		DefaultTag:   "2026.10.26",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
