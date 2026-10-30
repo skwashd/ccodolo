@@ -767,7 +767,7 @@ var builtinCatalog = []Tool{
 		Name:        "pinact",
 		Category:    "utils",
 		Description: "Pin GitHub Actions versions",
-		DefaultTag:  "5.0.0",
+		DefaultTag:  "5.0.2",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/suzuki-shunsuke/pinact/releases/download/v{{.Tag}}/pinact_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz -C /usr/local/bin pinact`,
