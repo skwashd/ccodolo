@@ -528,7 +528,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.168.0",
+		DefaultTag:   "0.169.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
