@@ -254,7 +254,7 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "docker.io/library/composer",
-		DefaultTag:   "2.10.3",
+		DefaultTag:   "2.11.0",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
