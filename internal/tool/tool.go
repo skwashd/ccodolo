@@ -442,7 +442,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "terraform-docs documentation generator",
 		SourceImage: "quay.io/terraform-docs/terraform-docs",
-		DefaultTag:  "0.24.0",
+		DefaultTag:  "0.25.1",
 		TagSuffix:   "-arm64", // TODO: Remove arch when upstream fixes their builds
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/terraform-docs /usr/local/bin/terraform-docs",
