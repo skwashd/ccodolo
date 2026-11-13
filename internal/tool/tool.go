@@ -834,7 +834,7 @@ var builtinCatalog = []Tool{
 		Name:         "youtube-transcript-api",
 		Category:     "utils",
 		Description:  "Python library/CLI to fetch YouTube transcripts",
-		DefaultTag:   "1.2.4",
+		DefaultTag:   "1.2.5",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			"RUN pip install --no-cache-dir youtube-transcript-api=={{.Tag}}",
