@@ -729,7 +729,7 @@ var builtinCatalog = []Tool{
 		Name:         "mermaid-cli",
 		Category:     "utils",
 		Description:  "Mermaid diagram renderer CLI (mmdc)",
-		DefaultTag:   "12.0.0",
+		DefaultTag:   "12.2.0",
 		Dependencies: []string{"nodejs", "chromium"},
 		Instructions: []string{
 			// Point puppeteer at the apt-installed chromium tool instead of
