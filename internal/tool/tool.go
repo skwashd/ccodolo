@@ -254,7 +254,7 @@ var builtinCatalog = []Tool{
 		Category:     "package-manager",
 		Description:  "Composer PHP package manager",
 		SourceImage:  "docker.io/library/composer",
-		DefaultTag:   "2.11.0",
+		DefaultTag:   "2.11.2",
 		Dependencies: []string{"php"},
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/composer /usr/local/bin/composer",
@@ -294,7 +294,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Conda/PyPI package manager (prefix-dev/pixi)",
 		SourceImage: "ghcr.io/prefix-dev/pixi",
-		DefaultTag:  "0.83.0",
+		DefaultTag:  "0.84.2",
 		TagSuffix:   "-trixie",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/pixi /usr/local/bin/pixi",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.17.0",
+		DefaultTag:   "12.20.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -318,7 +318,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.7.4",
+		DefaultTag:   "1.8.1",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.13.6",
+		DefaultTag:  "0.13.8",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -430,7 +430,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "HashiCorp Terraform",
 		SourceImage: "public.ecr.aws/hashicorp/terraform",
-		DefaultTag:  "1.17.1",
+		DefaultTag:  "1.17.2",
 		Instructions: []string{
 			"COPY --from=%s /bin/terraform /usr/local/bin/terraform",
 		},
@@ -442,7 +442,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "terraform-docs documentation generator",
 		SourceImage: "quay.io/terraform-docs/terraform-docs",
-		DefaultTag:  "0.24.0",
+		DefaultTag:  "0.25.1",
 		TagSuffix:   "-arm64", // TODO: Remove arch when upstream fixes their builds
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/terraform-docs /usr/local/bin/terraform-docs",
@@ -454,7 +454,7 @@ var builtinCatalog = []Tool{
 		Name:         "tflint",
 		Category:     "cloud",
 		Description:  "TFLint Terraform linter",
-		DefaultTag:   "0.65.0",
+		DefaultTag:   "0.66.0",
 		Dependencies: []string{"terraform"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v{{.Tag}}/tflint_linux_$(dpkg --print-architecture).zip" -o /tmp/tflint.zip \` + "\n" +
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.156.0",
+		DefaultTag:   "4.161.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -541,7 +541,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.64.1",
+		DefaultTag:   "1.65.0",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -560,7 +560,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright-cli",
 		Category:     "testing",
 		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
-		DefaultTag:   "0.1.22",
+		DefaultTag:   "0.1.24",
 		Dependencies: []string{"playwright"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
@@ -617,7 +617,7 @@ var builtinCatalog = []Tool{
 		Category:    "testing",
 		Description: "Obscura headless browser for AI agents and web scraping",
 		SourceImage: "h4ckf0r0day/obscura",
-		DefaultTag:  "0.2.5",
+		DefaultTag:  "0.2.6",
 		Instructions: []string{
 			"COPY --from=%s /obscura /usr/local/bin/obscura",
 		},
@@ -653,7 +653,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.103.3",
+		DefaultTag:  "2.104.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -729,7 +729,7 @@ var builtinCatalog = []Tool{
 		Name:         "mermaid-cli",
 		Category:     "utils",
 		Description:  "Mermaid diagram renderer CLI (mmdc)",
-		DefaultTag:   "12.0.0",
+		DefaultTag:   "12.2.0",
 		Dependencies: []string{"nodejs", "chromium"},
 		Instructions: []string{
 			// Point puppeteer at the apt-installed chromium tool instead of
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.3.2",
+		DefaultTag:  "0.3.3",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -834,7 +834,7 @@ var builtinCatalog = []Tool{
 		Name:         "youtube-transcript-api",
 		Category:     "utils",
 		Description:  "Python library/CLI to fetch YouTube transcripts",
-		DefaultTag:   "1.2.4",
+		DefaultTag:   "1.2.5",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			"RUN pip install --no-cache-dir youtube-transcript-api=={{.Tag}}",
@@ -864,7 +864,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.31.1",
+		DefaultTag:  "1.32.0",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
