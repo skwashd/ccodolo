@@ -13,6 +13,7 @@ components of the environment.
 - [Quickstart](#quickstart)
 - [Supported Agents](#supported-agents)
 - [Command](#command)
+- [Sessions and Dashboard](#sessions-and-dashboard)
 - [Configuration](#configuration)
 - [Dev Tools](#dev-tools)
 - [Custom Tools](#custom-tools)
@@ -110,7 +111,7 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--project <name>` | Project name (required) | — |
+| `--project <name>` | Project name (required, except with `--dashboard`) | — |
 | `--workdir <path>` | Working directory to mount | Current directory |
 | `--agent <name>` | Agent to use | `claude` (or from configuration) |
 | `--tools <list>` | Comma-separated dev tools (supports version pinning: `python:3.12-slim`) | Interactive TUI |
@@ -119,6 +120,7 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 | `--exec` | Attach to existing container | — |
 | `--rebuild` | Force image rebuild | — |
 | `--build-only` | Build image without launching | — |
+| `--dashboard` | Show all running sessions in a live dashboard — see [Dashboard](#dashboard) | — |
 
 ccodolo also has a `version` subcommand, which prints the build version, the
 commit hash, and the build date. There is no `--version` flag.
@@ -142,6 +144,8 @@ source <(ccodolo completion zsh)
 ```
 
 Run `ccodolo completion <shell> --help` for the setup steps for each shell.
+
+`--dashboard` takes no other flags.
 
 `--reconfigure` cannot combine with `--create-new`, `--exec`, or
 `--build-only`. If you run `--reconfigure` with no terminal attached, for
@@ -171,6 +175,9 @@ ccodolo --project myapp --reconfigure --agent antigravity --tools python,uv,terr
 # Attach to running container
 ccodolo --project myapp --exec
 
+# Watch and manage every running session
+ccodolo --dashboard
+
 # Pass flags directly to the agent
 ccodolo --project myapp -- -p "Refactor the auth module"
 
@@ -180,6 +187,93 @@ IMAGE=$(ccodolo --project myapp --build-only)
 # Force rebuild after configuration changes
 ccodolo --project myapp --rebuild
 ```
+
+## Sessions and Dashboard
+
+### Agent sessions
+
+The agent runs inside a tmux session in the container. ccodolo configures
+tmux to stay out of the way: there is no status bar and no prefix key.
+
+- **Ctrl+]** detaches. With Docker you get your host shell back, and the
+  agent keeps working. With the Apple runtime, tmux detaches and the
+  launch terminal prints a reminder; close the window.
+- **Closing the terminal window** also leaves the session running.
+- **Reattach** from `ccodolo --dashboard`.
+- **The session ends** when the agent exits, or when you stop it from the
+  dashboard. The container is removed as before.
+
+**Scrollback.** Your terminal's own scrollback cannot see output inside
+tmux. Scroll with the mouse wheel instead (this enters tmux copy mode;
+press `q` to leave it). To select text with the terminal rather than tmux,
+hold Shift while dragging in most terminals. Copying from tmux reaches your
+clipboard through OSC 52 where the terminal supports it.
+
+To run the agent directly instead, set the top-level key `tmux = false`.
+This brings back the old behaviour: closing the window ends the session.
+You do not need to rebuild. The first launch after upgrading rebuilds every
+project's image once, to add tmux.
+
+### Dashboard
+
+```bash
+ccodolo --dashboard
+```
+
+The dashboard lists every ccodolo session from every installed backend
+(Docker, and the Apple runtime where it is available). Each row shows:
+
+- project
+- agent
+- runtime
+- uptime
+- CPU (100% is one core)
+- memory (used, limit, and percent)
+- network and block I/O
+- process count
+- host working directory
+
+Stats refresh every second. With container CLI versions whose `container stats`
+call itself takes 2 seconds, Apple runtime stats refresh every 2 seconds.
+
+| Key | Action |
+|-----|--------|
+| `enter` / `a` | Attach to the agent. **Ctrl+]** returns to the dashboard; the agent keeps running. |
+| `s` | Open a new shell in the container. Ctrl+] returns, and the shell keeps running. |
+| `S` | List the open shells and reattach one. |
+| `b` | Run a command in the background. |
+| `t` | List background commands: view output (`enter`), attach (`a`), dismiss finished ones (`d`). |
+| `r` | Review the agent's scrollback. `/` searches, `n`/`N` step through matches. |
+| `x` | Stop the session, or every marked session, after a confirmation. |
+| `space` | Mark a session. |
+| `c` | Remove stopped ccodolo containers. |
+| `o` / `O` | Change the sort column (session, uptime, CPU, memory) / reverse the order. |
+| `/` | Filter by project, agent, or path. |
+| `?` | Help. |
+| `q` | Quit. Sessions keep running. |
+
+Background commands run in the container's working directory. Their output
+is also written to
+`~/.ccodolo/projects/<project>/common/.ccodolo/tasks/<task>.log` on the host,
+so it is still there after the container exits.
+
+The dashboard keeps its load on the host low:
+
+- Docker uses one `docker stats` stream and one `docker events` stream,
+  instead of starting a new process every second.
+- The Apple runtime has no event or stats stream, so it runs one
+  `container ls` and one `container stats` per second.
+- Each container's tmux sessions are read when you select it.
+- Both streams pause while you are attached.
+
+Limits:
+
+- Review shows tmux's history: the last 50,000 lines. Agents that draw a
+  full-screen interface, such as OpenCode, leave no history behind, so
+  review shows only their current screen.
+- Sessions with `tmux = false`, and containers started before this
+  version, show stats and can be stopped. `s` opens a plain shell in them;
+  type `exit` to return. Attach, background commands, and review need tmux.
 
 ## Configuration
 
@@ -194,6 +288,7 @@ CCoDoLo uses TOML configuration with two levels:
 agent = "claude"
 # runtime = "apple"  # experimental Apple container backend; default is "docker"
 # memory = "8g"      # container memory limit; unset means no limit (docker) or 4g (apple)
+# tmux = false       # run the agent directly instead of in a detachable tmux session
 passthrough_vars = [
     "GITHUB_TOKEN",
     "AWS_SECRET_ACCESS_KEY",
@@ -233,6 +328,7 @@ AWS_PROFILE = "dev"
 | `agent` | Project overrides global |
 | `runtime` | Project overrides global |
 | `memory` | Project overrides global |
+| `tmux` | Project overrides global |
 | `tools` | Union, deduplicated by name. Project version overrides. |
 | `build.root_steps` | Concatenated (global first, then project) |
 | `build.custom_steps` | Concatenated (global first, then project) |
@@ -396,8 +492,8 @@ reproducible builds. Select tools during project creation in the TUI, with
 
 Default versions are pinned in `internal/tool/tool.go` and are bumped
 automatically by the updater. See
-[Running the tool updater locally](CLAUDE.md#running-the-tool-updater-locally)
-in `CLAUDE.md`.
+[Running the tool updater locally](AGENTS.md#running-the-tool-updater-locally)
+in `AGENTS.md`.
 
 ### Tool dependencies
 
@@ -432,7 +528,7 @@ Every container includes these, regardless of tool selection:
 - **Editor**: vim
 - **Git**: git
 - **Security**: ca-certificates, gpg
-- **Utilities**: curl, fzf, jq, less, procps, sudo, unzip, xxd, xz-utils
+- **Utilities**: curl, fzf, jq, less, procps, sudo, tmux, unzip, xxd, xz-utils
 - **System**: adduser, libatomic1, locales (locale set to `en_US.UTF-8`)
 
 ### Startup hooks

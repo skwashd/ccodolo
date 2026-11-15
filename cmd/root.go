@@ -14,6 +14,7 @@ import (
 
 	"github.com/skwashd/ccodolo/internal/agent"
 	"github.com/skwashd/ccodolo/internal/config"
+	"github.com/skwashd/ccodolo/internal/dashboard"
 	"github.com/skwashd/ccodolo/internal/docker"
 	"github.com/skwashd/ccodolo/internal/project"
 	"github.com/skwashd/ccodolo/internal/tool"
@@ -32,6 +33,7 @@ var (
 	flagRebuild     bool
 	flagBuildOnly   bool
 	flagReconfigure bool
+	flagDashboard   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -55,8 +57,13 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagRebuild, "rebuild", false, "Force image rebuild")
 	rootCmd.Flags().BoolVar(&flagBuildOnly, "build-only", false, "Build the image but don't launch a container")
 	rootCmd.Flags().BoolVar(&flagReconfigure, "reconfigure", false, "Update agent and tools for an existing project")
+	rootCmd.Flags().BoolVar(&flagDashboard, "dashboard", false, "Show running sessions in a live dashboard")
 
-	_ = rootCmd.MarkFlagRequired("project")
+	// --project is required except with --dashboard, so runRoot checks it
+	// rather than cobra.MarkFlagRequired.
+	for _, other := range []string{"project", "exec", "reconfigure", "build-only", "create-new"} {
+		rootCmd.MarkFlagsMutuallyExclusive("dashboard", other)
+	}
 	_ = rootCmd.RegisterFlagCompletionFunc("project", completeProjects)
 	_ = rootCmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(agent.AllNames(), cobra.ShellCompDirectiveNoFileComp))
 
@@ -69,6 +76,13 @@ func Execute() error {
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
+	if flagDashboard {
+		return dashboard.Run()
+	}
+	if flagProject == "" {
+		return errors.New(`required flag(s) "project" not set`)
+	}
+
 	// Validate flag combinations.
 	if flagReconfigure {
 		if flagCreateNew {

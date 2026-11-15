@@ -1,10 +1,10 @@
-# CLAUDE.md - Guide for AI Coding Assistants
+# AGENTS.md - Guide for AI Coding Assistants
 
 This document provides development guidelines for AI-powered coding tools working on the CCoDoLo project itself.
 
 **For project features, usage, and architecture**: See [README.md](README.md)
 
-**Note**: `AGENTS.md` is a symlink to this file so non-Claude assistants discover it too — edit `CLAUDE.md`, not the symlink.
+**Note**: `AGENTS.md` is the canonical file, and current Claude Code reads it directly. `CLAUDE.md` is a symlink to it for older Claude Code versions that only look for `CLAUDE.md`. Edit `AGENTS.md`; tools that write through the symlink in place (`sed -i`, `perl -i`) replace it with a regular file, so check `git status` for a `T` (type change) on `CLAUDE.md`.
 
 ## What This Project Is
 
@@ -39,7 +39,15 @@ ccodolo/
 │   │   ├── config_test.go
 │   │   ├── migrate.go               # ccodolo.config → ccodolo.toml migration
 │   │   └── migrate_test.go
+│   ├── dashboard/                   # --dashboard TUI (bubbletea)
+│   │   ├── dashboard.go             # Run(), backend detection
+│   │   ├── sources.go               # Stats/events feeds per backend, pause while attached
+│   │   ├── model.go                 # State, keys, actions
+│   │   ├── view.go                  # Rendering
+│   │   └── model_test.go
 │   ├── docker/
+│   │   ├── actions.go               # Dashboard action argv (attach, shells, tasks, stop) for both backends
+│   │   ├── actions_test.go
 │   │   ├── build.go                 # Image build orchestration, build-context staging
 │   │   ├── build_test.go
 │   │   ├── dockerfile.go            # Dockerfile template rendering
@@ -53,7 +61,11 @@ ccodolo/
 │   │   ├── run.go                   # docker run / docker exec argv (--mount binds, env, TERM defaults)
 │   │   ├── run_test.go
 │   │   ├── runtime.go               # Runtime enum (docker/apple), host checks
-│   │   └── runtime_test.go
+│   │   ├── runtime_test.go
+│   │   ├── sessions.go              # Session discovery: labels, inspect, legacy fallback, docker events
+│   │   ├── sessions_test.go
+│   │   ├── stats.go                 # docker stats stream, apple stats poll, size parsing
+│   │   └── stats_test.go
 │   ├── fsutil/
 │   │   ├── copy.go                  # CopyDir/CopyFile, mode-preserving
 │   │   └── copy_test.go
@@ -85,7 +97,7 @@ ccodolo/
 │   ├── embed.go                     # go:embed directives
 │   ├── Dockerfile.tmpl              # Templatized Dockerfile
 │   ├── dotfiles/                    # Shell configurations (.bashrc, .zshrc.local, .inputrc)
-│   └── scripts/                     # Container startup scripts (git worktree hygiene)
+│   └── scripts/                     # Container scripts: git worktree hygiene, session.sh (PID 1, agent in tmux), tmux.conf
 ├── docs/
 │   └── custom-tools.md              # Custom tool catalog reference (custom-tools.json)
 └── template.example/                # Example project templates
@@ -113,6 +125,10 @@ GOOS=windows go build -o /dev/null ./...   # the binary ships for Windows; catch
 - Host paths and container paths are different things: container paths are always Linux paths, so inspect them with `path`, never `path/filepath` (`filepath.IsAbs("/home/coder")` is false on Windows). Host paths go through `filepath`. Bind mounts use `--mount type=bind,source=,target=` rather than `-v` because a Windows drive letter makes the colon form ambiguous, and both backends accept the same keys
 - `internal/docker` supports two container backends via the `Runtime` enum: `docker` (default) and `apple` (experimental, Apple's `container` CLI on macOS 26/Apple Silicon, opted into via `runtime = "apple"` in ccodolo.toml). The apple path cannot run in CI, so backend argv construction must stay in pure, unit-tested functions (`buildArgs`, `runArgs`, `parse*ContainerList`, `matchContainer`)
 - Each image contains exactly one agent — no start-agent dispatch script
+- `embedded/scripts/session.sh` is PID 1 (the startup runner execs it) and runs the agent in the `agent` tmux session; user-facing behaviour: see [README → Sessions and Dashboard](README.md#sessions-and-dashboard). Its trap/background-`wait` shape is load-bearing: PID 1 has no default SIGTERM action, and sh defers traps until a foreground child exits, so a foreground wait would make `docker stop` hang until SIGKILL. `validate.yml` smoke-tests the exit status and stop latency, the only coverage of the tmux path
+- Every tmux call from the host passes `-f /etc/ccodolo/tmux.conf`: whichever call starts the server decides its config, and Ctrl+] detaching depends on it
+- Sessions are found by the `ccodolo.*` labels `runArgs` sets (`internal/docker/sessions.go`). Containers from before the labels are recovered from the `ccodolo-` name prefix, the `/workspace/<project>/…` mount, and the image tag; keep that fallback, because those containers can still be running
+- The dashboard must stay cheap on the host: long-lived `docker stats`/`docker events` streams, not a process per tick; tmux state read on selection, not per tick; streams paused during `tea.ExecProcess`. Attaching runs `docker exec` as a child of the Go process, the shape behind #29. If a terminal breaks there, the Unix fix is to hand off via `execCLI` and re-exec `ccodolo --dashboard` afterwards
 - Dockerfile is generated dynamically from `embedded/Dockerfile.tmpl` using `text/template`
 - Config, merge semantics, and `ccodolo.config` migration: see [README → Configuration](README.md#configuration); code lives in `internal/config/`
 - Image architecture (multi-stage `COPY --from`, `FROM scratch` squash, content-addressed tags): see [README → Image Architecture](README.md#image-architecture)

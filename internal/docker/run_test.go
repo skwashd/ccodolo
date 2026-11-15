@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/skwashd/ccodolo/internal/agent"
 	"github.com/skwashd/ccodolo/internal/config"
@@ -54,7 +55,7 @@ func runArgsFixture(t *testing.T, rt Runtime, memory string) (args []string, pro
 	// Terminal, which would otherwise trigger the COLORTERM fallback.
 	t.Setenv("WT_SESSION", "")
 
-	args, err = runArgs(rt, cfg, meta, projectPath, workdir,
+	args, err = runArgs(rt, cfg, meta, "proj", projectPath, workdir,
 		"test-name", "/workspace/proj/wd", "ccodolo:proj-claude-abcd1234",
 		[]string{"--resume"})
 	if err != nil {
@@ -85,10 +86,18 @@ func wantMount(rt Runtime, src, dst string, readOnly bool) []string {
 // which the caller supplies.
 func expectedRunArgs(rt Runtime, projectPath, workdir, passthroughSet, memory string) []string {
 	args := []string{"run", "--rm", "-it"}
+	if rt == RuntimeDocker {
+		args = append(args, "--detach-keys", "ctrl-]")
+	}
 	if memory != "" {
 		args = append(args, "--memory", memory)
 	}
-	args = append(args, "--name", "test-name", "-w", "/workspace/proj/wd")
+	args = append(args, "--name", "test-name",
+		"--label", "ccodolo.project=proj",
+		"--label", "ccodolo.workdir="+workdir,
+		"--label", "ccodolo.agent=claude",
+		"--label", "ccodolo.tmux=1",
+		"-w", "/workspace/proj/wd")
 	args = append(args, wantMount(rt, workdir, "/workspace/proj/wd", false)...)
 	args = append(args, wantMount(rt, filepath.Join(projectPath, "commandhistory"), "/commandhistory", false)...)
 	args = append(args, wantMount(rt, filepath.Join(projectPath, "common"), "/home/coder/project", false)...)
@@ -154,7 +163,7 @@ func TestRunArgsWindowsTerminalDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	args, err := runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta,
+	args, err := runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta, "p",
 		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
 	if err != nil {
 		t.Fatalf("runArgs error: %v", err)
@@ -167,7 +176,7 @@ func TestRunArgsWindowsTerminalDefaults(t *testing.T) {
 
 	// An explicit host value still wins over the fallback.
 	t.Setenv("TERM", "xterm-ghostty")
-	args, err = runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta,
+	args, err = runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta, "p",
 		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
 	if err != nil {
 		t.Fatalf("runArgs error: %v", err)
@@ -255,7 +264,7 @@ func TestRunArgsRejectsCommaInVolumePath(t *testing.T) {
 		Agent:   "claude",
 		Volumes: []config.Volume{{Host: "/srv/a,b", Container: "/data"}},
 	}
-	_, err = runArgs(RuntimeDocker, cfg, meta, t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+	_, err = runArgs(RuntimeDocker, cfg, meta, "p", t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
 	if err == nil || !strings.Contains(err.Error(), "/srv/a,b") {
 		t.Errorf("expected error naming the offending path, got %v", err)
 	}
@@ -354,5 +363,52 @@ func TestParseAppleContainerList(t *testing.T) {
 
 	if _, err := parseAppleContainerList([]byte("not json")); err == nil {
 		t.Error("expected error for malformed JSON")
+	}
+}
+
+func TestRunArgsTmuxOptOut(t *testing.T) {
+	meta, err := agent.Get(agent.Claude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	off := false
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		args, err := runArgs(rt, &config.Config{Agent: "claude", Tmux: &off}, meta, "p",
+			t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+		if err != nil {
+			t.Fatalf("runArgs error: %v", err)
+		}
+		if !slices.Contains(args, "CCODOLO_TMUX=0") {
+			t.Errorf("%s: expected -e CCODOLO_TMUX=0, got %q", rt, args)
+		}
+		if !slices.Contains(args, "ccodolo.tmux=0") {
+			t.Errorf("%s: expected the tmux label to record the opt-out, got %q", rt, args)
+		}
+		if slices.Contains(args, "--detach-keys") {
+			t.Errorf("%s: no detach keys without tmux: detaching would orphan the agent, got %q", rt, args)
+		}
+	}
+}
+
+func TestContainerName(t *testing.T) {
+	at := time.Date(2026, 11, 1, 21, 42, 0, 0, time.UTC)
+
+	// Short names are unchanged.
+	if got, want := containerName("proj", filepath.Join("src", "app"), at), "ccodolo-proj-app-202611012142"; got != want {
+		t.Errorf("containerName = %q, want %q", got, want)
+	}
+
+	// The name that failed on the apple runtime: 66 characters uncapped.
+	workdir := filepath.Join("Users", "dave", "aws-lambda-runtime-interface-emulator")
+	got := containerName("ccodolo", workdir, at)
+	if len(got) > maxContainerNameLen {
+		t.Errorf("containerName = %q (%d chars), want at most %d", got, len(got), maxContainerNameLen)
+	}
+	if !strings.HasSuffix(got, "-202611012142") {
+		t.Errorf("containerName = %q: the timestamp must survive shortening", got)
+	}
+	// --exec finds the container by the namespace prefix.
+	if ns := containerNamespace("ccodolo", workdir); !strings.HasPrefix(got, ns) {
+		t.Errorf("name %q does not start with namespace %q", got, ns)
 	}
 }

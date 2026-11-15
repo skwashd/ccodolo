@@ -20,6 +20,7 @@ RUN apt update && apt upgrade -y \
     man \
     procps \
     sudo \
+    tmux \
     unzip \
     vim \
     xxd \
@@ -74,10 +75,11 @@ USER root
 # git hygiene runs with inherited stdout/stderr — its output is benign and
 # should be visible at launch. Tool hooks stay redirected to the log file
 # because they may echo secrets.
-COPY --chmod=0755 scripts/git-hygiene.sh /etc/ccodolo/git-hygiene.sh
+COPY --chmod=0755 scripts/git-hygiene.sh scripts/session.sh /etc/ccodolo/
+COPY --chmod=0644 scripts/tmux.conf /etc/ccodolo/tmux.conf
 RUN printf '%s\n' \
     '#!/bin/sh' \
-    '# ccodolo startup runner: git hygiene, tool hooks, then exec the agent.' \
+    '# ccodolo startup runner: git hygiene, tool hooks, then the agent session.' \
     'sh /etc/ccodolo/git-hygiene.sh || echo "Warning: git worktree hygiene failed" >&2' \
     'CCODOLO_HOOK_LOG=/tmp/ccodolo-startup.log' \
     'for hook in /etc/ccodolo/startup.d/*.sh; do' \
@@ -86,7 +88,7 @@ RUN printf '%s\n' \
     '        echo "Warning: startup hook $(basename "$hook") failed; see $CCODOLO_HOOK_LOG" >&2' \
     '    fi' \
     'done' \
-    'exec "$@"' \
+    'exec sh /etc/ccodolo/session.sh "$@"' \
     > /usr/local/bin/ccodolo-startup \
  && chmod 0755 /usr/local/bin/ccodolo-startup
 {{ range .StartupHookSteps }}
