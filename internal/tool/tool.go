@@ -712,7 +712,7 @@ var builtinCatalog = []Tool{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
 				`  && curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/lychee-v{{.Tag}}/lychee-${ARCH}-unknown-linux-gnu.tar.gz" \` + "\n" +
-				`  | tar xz -C /usr/local/bin lychee`,
+				`  | tar xz --strip-components=1 -C /usr/local/bin/ lychee-aarch64-unknown-linux-gnu/lychee`,
 		},
 		UpdateSource: UpdateGitHub,
 		UpdateRef:    "lycheeverse/lychee",
