@@ -233,7 +233,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Rust toolchain (includes cargo)",
 		SourceImage: "docker.io/library/rust",
-		DefaultTag:  "1.99.1",
+		DefaultTag:  "1.100.0",
 		TagSuffix:   "-slim",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/rustup /usr/local/rustup",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.20.0",
+		DefaultTag:   "12.21.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -410,7 +410,7 @@ var builtinCatalog = []Tool{
 		Category:    "cloud",
 		Description: "Helm package manager for Kubernetes",
 		Instructions: []string{
-			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.3.1/scripts/get-helm-4 | bash",
+			"RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/refs/tags/v4.3.2/scripts/get-helm-4 | bash",
 		},
 	},
 	{
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.161.0",
+		DefaultTag:   "4.162.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -528,7 +528,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.169.0",
+		DefaultTag:   "0.170.0",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -541,7 +541,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright",
 		Category:     "testing",
 		Description:  "Playwright browser testing CLI with pre-built Chromium",
-		DefaultTag:   "1.65.0",
+		DefaultTag:   "1.65.1",
 		TagSuffix:    "-noble",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.3.3",
+		DefaultTag:  "0.3.4",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
