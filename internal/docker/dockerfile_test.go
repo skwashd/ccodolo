@@ -506,11 +506,30 @@ func TestRenderDockerfileNoHooksStillRunsHygiene(t *testing.T) {
 	if !strings.Contains(result, "> /usr/local/bin/ccodolo-startup") {
 		t.Error("expected the startup runner script to be installed")
 	}
-	if !strings.Contains(result, "COPY --chmod=0755 scripts/git-hygiene.sh /etc/ccodolo/git-hygiene.sh") {
-		t.Error("expected the git hygiene script to be copied into the image")
+	if !strings.Contains(result, "COPY --chmod=0755 scripts/git-hygiene.sh scripts/session.sh /etc/ccodolo/") {
+		t.Error("expected the git hygiene and session scripts to be copied into the image")
 	}
 	if !strings.Contains(result, "sh /etc/ccodolo/git-hygiene.sh") {
 		t.Error("expected the runner to invoke the git hygiene script")
+	}
+}
+
+func TestRenderDockerfileRunsAgentInSession(t *testing.T) {
+	result, err := RenderDockerfile(&config.Config{Agent: "claude"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, want := range []string{
+		"    tmux \\\n",
+		"COPY --chmod=0644 scripts/tmux.conf /etc/ccodolo/tmux.conf",
+		`'exec sh /etc/ccodolo/session.sh "$@"'`,
+	} {
+		if !strings.Contains(result, want) {
+			t.Errorf("expected Dockerfile to contain %q", want)
+		}
+	}
+	if strings.Contains(result, `'exec "$@"'`) {
+		t.Error("expected the runner to hand the agent to session.sh, not exec it directly")
 	}
 }
 

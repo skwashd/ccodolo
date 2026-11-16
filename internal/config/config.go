@@ -18,6 +18,7 @@ type Config struct {
 	Agent           string            `toml:"agent"`
 	Runtime         string            `toml:"runtime,omitempty"`
 	Memory          string            `toml:"memory,omitempty"`
+	Tmux            *bool             `toml:"tmux,omitempty"`
 	Tools           map[string]string `toml:"tools"`
 	Build           BuildConfig       `toml:"build"`
 	Volumes         []Volume          `toml:"volumes"`
@@ -56,6 +57,12 @@ func ValidRuntime(name string) bool {
 		}
 	}
 	return false
+}
+
+// TmuxEnabled reports whether the agent runs inside a tmux session. Unset
+// means enabled; tmux = false opts out.
+func (cfg *Config) TmuxEnabled() bool {
+	return cfg.Tmux == nil || *cfg.Tmux
 }
 
 // ToolEntry represents a tool selection used internally.
@@ -304,6 +311,7 @@ func Save(cfg *Config, path string) error {
 // - agent: project overrides global
 // - runtime: project overrides global
 // - memory: project overrides global
+// - tmux: project overrides global (unset in both means enabled)
 // - tools: union (deduplicated by name; project version overrides)
 // - build.custom_steps: concatenated (global first, then project)
 // - build.root_steps: concatenated (global first, then project)
@@ -329,6 +337,12 @@ func Merge(global, project *Config) *Config {
 	result.Memory = global.Memory
 	if project.Memory != "" {
 		result.Memory = project.Memory
+	}
+
+	// Tmux: project overrides global.
+	result.Tmux = global.Tmux
+	if project.Tmux != nil {
+		result.Tmux = project.Tmux
 	}
 
 	// Tools: union; project version overrides global.

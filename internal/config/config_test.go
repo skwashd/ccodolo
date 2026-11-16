@@ -196,6 +196,28 @@ func TestMergeMemory(t *testing.T) {
 	}
 }
 
+func TestMergeTmux(t *testing.T) {
+	off, on := false, true
+	tests := []struct {
+		name            string
+		global, project *bool
+		want            bool
+	}{
+		{"unset defaults to enabled", nil, nil, true},
+		{"global opt-out", &off, nil, false},
+		{"project overrides global opt-out", &off, &on, true},
+		{"project opt-out", nil, &off, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Merge(&Config{Tmux: tt.global}, &Config{Tmux: tt.project})
+			if got := result.TmuxEnabled(); got != tt.want {
+				t.Errorf("TmuxEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMergeTools(t *testing.T) {
 	global := &Config{
 		Tools: map[string]string{

@@ -36,9 +36,9 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 	}
 	workdirBase := filepath.Base(workdir)
 	containerWorkspace := fmt.Sprintf("/workspace/%s/%s", project, workdirBase)
-	containerName := fmt.Sprintf("ccodolo-%s-%s-%s", project, workdirBase, time.Now().Format("200601021504"))
+	name := containerName(project, workdir, time.Now())
 
-	args, err := runArgs(rt, cfg, meta, projectPath, workdir, containerName, containerWorkspace, imageTag, extraArgs)
+	args, err := runArgs(rt, cfg, meta, project, projectPath, workdir, name, containerWorkspace, imageTag, extraArgs)
 	if err != nil {
 		return err
 	}
@@ -178,10 +178,17 @@ func runArgs(
 	rt Runtime,
 	cfg *config.Config,
 	meta agent.Meta,
-	projectPath, workdir, containerName, containerWorkspace, imageTag string,
+	project, projectPath, workdir, containerName, containerWorkspace, imageTag string,
 	extraArgs []string,
 ) ([]string, error) {
 	args := []string{"run", "--rm", "-it"}
+
+	// Ctrl+] detaches the launch terminal and leaves the session running.
+	// Docker intercepts it before it reaches the container; on the apple
+	// runtime the same key reaches tmux, whose binding detaches instead.
+	if rt == RuntimeDocker && cfg.TmuxEnabled() {
+		args = append(args, "--detach-keys", "ctrl-]")
+	}
 
 	// Memory. Docker containers share host memory unless capped, so no flag
 	// is emitted when memory is unset; the apple runtime boots each container
@@ -197,6 +204,9 @@ func runArgs(
 
 	// Container name.
 	args = append(args, "--name", containerName)
+
+	// Labels identify the session to the dashboard (see sessions.go).
+	args = append(args, sessionLabelArgs(project, workdir, cfg.Agent, cfg.TmuxEnabled())...)
 
 	// Working directory.
 	args = append(args, "-w", containerWorkspace)
@@ -245,6 +255,11 @@ func runArgs(
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// tmux = false: session.sh execs the agent directly, as before tmux.
+	if !cfg.TmuxEnabled() {
+		args = append(args, "-e", "CCODOLO_TMUX=0")
+	}
+
 	// Passthrough env vars from the host shell. Docker reads the value of a
 	// bare `-e NAME` from its own environment (execCLI hands ours to it on
 	// every platform). Apple's container CLI is not documented to do the
@@ -270,10 +285,7 @@ func runArgs(
 	// var that's unset on the host is skipped silently: this is a
 	// convenience default, not an explicit user request.
 	//
-	// Windows Terminal sets neither variable, and docker's own fallback is
-	// TERM=xterm, which leaves agent TUIs in 16 colours. WT_SESSION
-	// identifies it and its capabilities are known, so fill them in.
-	windowsTerminalDefaults := map[string]string{"TERM": "xterm-256color", "COLORTERM": "truecolor"}
+	// hostTermVar fills in Windows Terminal, which sets neither.
 	for _, name := range []string{"TERM", "COLORTERM"} {
 		if _, ok := cfg.Environment[name]; ok {
 			continue
@@ -281,11 +293,7 @@ func runArgs(
 		if slices.Contains(cfg.PassthroughVars, name) {
 			continue
 		}
-		v := os.Getenv(name)
-		if v == "" && os.Getenv("WT_SESSION") != "" {
-			v = windowsTerminalDefaults[name]
-		}
-		if v != "" {
+		if v := hostTermVar(name); v != "" {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", name, v))
 		}
 	}
@@ -385,10 +393,35 @@ func matchContainer(entries []containerEntry, namespace string) (containerEntry,
 	return matches[0], nil
 }
 
+// maxContainerNameLen is the Apple runtime's container name limit (the DNS
+// label maximum); a longer name fails with "is not a valid container ID".
+// Docker has no limit, but both get the same names so --exec matches them
+// the same way.
+const maxContainerNameLen = 63
+
+// containerTimestamp suffixes every container name.
+const containerTimestamp = "200601021504"
+
+// containerNamespace is the name prefix of every container for a project and
+// workdir: ccodolo-<project>-<dir>, shortened so a name built from it fits
+// maxContainerNameLen with its timestamp. --exec matches on it, so Run and
+// Exec must both use it.
+func containerNamespace(project, workdir string) string {
+	ns := fmt.Sprintf("ccodolo-%s-%s", project, filepath.Base(workdir))
+	if limit := maxContainerNameLen - len("-"+containerTimestamp); len(ns) > limit {
+		ns = ns[:limit]
+	}
+	return ns
+}
+
+// containerName names a new container started at t.
+func containerName(project, workdir string, t time.Time) string {
+	return containerNamespace(project, workdir) + "-" + t.Format(containerTimestamp)
+}
+
 // Exec attaches to an existing container by namespace prefix.
 func Exec(rt Runtime, project, workdir string) error {
-	workdirBase := filepath.Base(workdir)
-	namespace := fmt.Sprintf("ccodolo-%s-%s", project, workdirBase)
+	namespace := containerNamespace(project, workdir)
 
 	entries, err := listContainers(rt)
 	if err != nil {

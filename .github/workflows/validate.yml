@@ -107,3 +107,23 @@ jobs:
           IMAGE=$(./ccodolo --project ci-smoke --create-new --agent claude --tools nodejs,golang,python --build-only --rebuild | tail -n1)
           echo "Built image: $IMAGE"
           timeout 60 docker run --rm --entrypoint sh "$IMAGE" -c 'node --version && go version && python3 --version && claude --version'
+
+      - name: Session wrapper smoke test
+        run: |
+          IMAGE=$(./ccodolo --project ci-smoke --agent claude --build-only | tail -n1)
+          # The tmux config loads cleanly and its terminal type exists.
+          timeout 60 docker run --rm --entrypoint sh "$IMAGE" -c \
+            'tmux -L smoke -f /dev/null new-session -d sleep 5 && tmux -L smoke source-file /etc/ccodolo/tmux.conf && infocmp tmux-256color >/dev/null'
+          # With a TTY the command runs inside the "agent" tmux session and
+          # its exit status becomes the container's.
+          status=0
+          timeout 60 docker run --rm -t --entrypoint sh "$IMAGE" /etc/ccodolo/session.sh sh -c 'tmux has-session -t agent && exit 3' || status=$?
+          [ "$status" -eq 3 ] || { echo "expected exit 3 from the agent session, got $status"; exit 1; }
+          # docker stop is prompt: session.sh, as PID 1, handles SIGTERM.
+          CID=$(docker run -d -t --entrypoint sh "$IMAGE" /etc/ccodolo/session.sh sleep 300)
+          sleep 2
+          start=$(date +%s)
+          docker stop "$CID" >/dev/null
+          elapsed=$(( $(date +%s) - start ))
+          docker rm "$CID" >/dev/null
+          [ "$elapsed" -lt 5 ] || { echo "docker stop took ${elapsed}s: session.sh did not handle SIGTERM"; exit 1; }
