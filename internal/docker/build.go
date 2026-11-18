@@ -71,12 +71,15 @@ func Build(rt Runtime, cfg *config.Config, project, projectPath string, force bo
 		return "", fmt.Errorf("writing Dockerfile: %w", err)
 	}
 
-	// Write embedded dotfiles and startup scripts.
+	// Write embedded dotfiles, startup scripts and terminfo sources.
 	if err := writeEmbeddedTree(embedded.Dotfiles, "dotfiles", tmpDir); err != nil {
 		return "", fmt.Errorf("writing dotfiles: %w", err)
 	}
 	if err := writeEmbeddedTree(embedded.Scripts, "scripts", tmpDir); err != nil {
 		return "", fmt.Errorf("writing scripts: %w", err)
+	}
+	if err := writeEmbeddedTree(embedded.Terminfo, "terminfo", tmpDir); err != nil {
+		return "", fmt.Errorf("writing terminfo: %w", err)
 	}
 
 	// Stage COPY/ADD source files referenced by custom_steps/root_steps.

@@ -43,6 +43,13 @@ RUN apt update && apt upgrade -y \
 # worktree hygiene (which exits quietly when git rev-parse fails) break.
 RUN git config --system --add safe.directory '*'
 
+# Terminal types Debian's ncurses lacks (Ghostty's xterm-ghostty). TERM is
+# forwarded from the host, and tmux refuses to start or attach for a terminal
+# it has no entry for.
+COPY terminfo/ /tmp/ccodolo-terminfo/
+RUN for f in /tmp/ccodolo-terminfo/*.terminfo; do tic -x -o /usr/share/terminfo "$f"; done \
+  && rm -rf /tmp/ccodolo-terminfo
+
 # ── Root setup steps ─────────────────────────────────
 {{ range .RootSteps }}
 {{ . }}

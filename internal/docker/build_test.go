@@ -28,6 +28,35 @@ func TestWriteEmbeddedTreeStagesScripts(t *testing.T) {
 	}
 }
 
+// Ghostty forwards TERM=xterm-ghostty, which Debian's ncurses lacks; without
+// the entry tmux refuses to start the agent session or attach to it.
+func TestGhosttyTerminfoInstalled(t *testing.T) {
+	tmp := t.TempDir()
+	if err := writeEmbeddedTree(embedded.Terminfo, "terminfo", tmp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "terminfo", "xterm-ghostty.terminfo"))
+	if err != nil {
+		t.Fatalf("expected xterm-ghostty.terminfo in the build context: %v", err)
+	}
+	if !strings.Contains(string(data), "\nxterm-ghostty|") {
+		t.Error("expected the staged file to define xterm-ghostty")
+	}
+
+	dockerfile, err := RenderDockerfile(&config.Config{Agent: "claude"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, want := range []string{
+		"COPY terminfo/ /tmp/ccodolo-terminfo/",
+		`tic -x -o /usr/share/terminfo "$f"`,
+	} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("expected Dockerfile to contain %q", want)
+		}
+	}
+}
+
 // setupCommonDir creates <projectPath>/common with the given fixture files
 // (relative paths) and returns projectPath.
 func setupCommonDir(t *testing.T, files map[string]string) string {

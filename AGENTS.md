@@ -97,7 +97,8 @@ ccodolo/
 │   ├── embed.go                     # go:embed directives
 │   ├── Dockerfile.tmpl              # Templatized Dockerfile
 │   ├── dotfiles/                    # Shell configurations (.bashrc, .zshrc.local, .inputrc)
-│   └── scripts/                     # Container scripts: git worktree hygiene, session.sh (PID 1, agent in tmux), tmux.conf
+│   ├── scripts/                     # Container scripts: git worktree hygiene, session.sh (PID 1, agent in tmux), tmux.conf
+│   └── terminfo/                    # Terminfo sources Debian lacks (xterm-ghostty), compiled into the image with tic
 ├── docs/
 │   └── custom-tools.md              # Custom tool catalog reference (custom-tools.json)
 └── template.example/                # Example project templates

@@ -12,7 +12,7 @@ import (
 )
 
 // ImageTag computes the image tag for a project from the rendered
-// Dockerfile, the embedded dotfile and startup script contents, and the
+// Dockerfile, the embedded dotfile, startup script and terminfo contents, and the
 // resolved build-context staged files (custom_steps/root_steps COPY/ADD
 // sources). Hashing these keeps the tag in sync with them — otherwise
 // editing an embedded or staged file's contents, without touching the
@@ -23,6 +23,7 @@ func ImageTag(project, agentName, dockerfile string, staged []stagedFile) string
 
 	hashEmbeddedFS(h, embedded.Dotfiles)
 	hashEmbeddedFS(h, embedded.Scripts)
+	hashEmbeddedFS(h, embedded.Terminfo)
 
 	// Include staged build-context files (relative path, mode, contents),
 	// in the order resolveBuildContextFiles already sorted them for
