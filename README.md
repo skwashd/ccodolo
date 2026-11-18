@@ -111,7 +111,7 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--project <name>` | Project name (required, except with `--dashboard`) | — |
+| `--project <name>` | Project name (required) | — |
 | `--workdir <path>` | Working directory to mount | Current directory |
 | `--agent <name>` | Agent to use | `claude` (or from configuration) |
 | `--tools <list>` | Comma-separated dev tools (supports version pinning: `python:3.12-slim`) | Interactive TUI |
@@ -120,7 +120,6 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 | `--exec` | Attach to existing container | — |
 | `--rebuild` | Force image rebuild | — |
 | `--build-only` | Build image without launching | — |
-| `--dashboard` | Show all running sessions in a live dashboard — see [Dashboard](#dashboard) | — |
 
 ccodolo also has a `version` subcommand, which prints the build version, the
 commit hash, and the build date. There is no `--version` flag.
@@ -130,6 +129,11 @@ use — see [Git Worktrees](#git-worktrees). It takes an optional `--workdir`
 flag (defaults to the current directory); any directory inside the
 repository works, since the worktree conventions are resolved from the
 repository root.
+
+The `dashboard` subcommand shows all running sessions in a live dashboard —
+see [Dashboard](#dashboard). It takes no flags. The old `--dashboard` flag
+still works but is deprecated: it prints a warning to stderr and will be
+removed in a future release.
 
 The `completion` subcommand prints a shell completion script for `bash`,
 `zsh`, `fish`, or `powershell`. With it loaded, `--project <TAB>` completes
@@ -144,8 +148,6 @@ source <(ccodolo completion zsh)
 ```
 
 Run `ccodolo completion <shell> --help` for the setup steps for each shell.
-
-`--dashboard` takes no other flags.
 
 `--reconfigure` cannot combine with `--create-new`, `--exec`, or
 `--build-only`. If you run `--reconfigure` with no terminal attached, for
@@ -176,7 +178,7 @@ ccodolo --project myapp --reconfigure --agent antigravity --tools python,uv,terr
 ccodolo --project myapp --exec
 
 # Watch and manage every running session
-ccodolo --dashboard
+ccodolo dashboard
 
 # Pass flags directly to the agent
 ccodolo --project myapp -- -p "Refactor the auth module"
@@ -199,7 +201,7 @@ tmux to stay out of the way: there is no status bar and no prefix key.
   agent keeps working. With the Apple runtime, tmux detaches and the
   launch terminal prints a reminder; close the window.
 - **Closing the terminal window** also leaves the session running.
-- **Reattach** from `ccodolo --dashboard`.
+- **Reattach** from `ccodolo dashboard`.
 - **The session ends** when the agent exits, or when you stop it from the
   dashboard. The container is removed as before.
 
@@ -217,7 +219,7 @@ project's image once, to add tmux.
 ### Dashboard
 
 ```bash
-ccodolo --dashboard
+ccodolo dashboard
 ```
 
 The dashboard lists every ccodolo session from every installed backend

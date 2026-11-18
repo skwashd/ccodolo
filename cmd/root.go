@@ -57,7 +57,10 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagRebuild, "rebuild", false, "Force image rebuild")
 	rootCmd.Flags().BoolVar(&flagBuildOnly, "build-only", false, "Build the image but don't launch a container")
 	rootCmd.Flags().BoolVar(&flagReconfigure, "reconfigure", false, "Update agent and tools for an existing project")
-	rootCmd.Flags().BoolVar(&flagDashboard, "dashboard", false, "Show running sessions in a live dashboard")
+	// Deprecated in favour of the dashboard subcommand; hidden from help but
+	// still accepted so existing scripts and aliases keep working.
+	rootCmd.Flags().BoolVar(&flagDashboard, "dashboard", false, "Deprecated: use `ccodolo dashboard`")
+	_ = rootCmd.Flags().MarkHidden("dashboard")
 
 	// --project is required except with --dashboard, so runRoot checks it
 	// rather than cobra.MarkFlagRequired.
@@ -77,6 +80,7 @@ func Execute() error {
 
 func runRoot(cmd *cobra.Command, args []string) error {
 	if flagDashboard {
+		warnDashboardFlagDeprecated(cmd.ErrOrStderr())
 		return dashboard.Run()
 	}
 	if flagProject == "" {

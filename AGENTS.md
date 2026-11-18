@@ -28,6 +28,7 @@ ccodolo/
 ├── main.go                          # Entrypoint → cmd.Execute()
 ├── cmd/
 │   ├── root.go                      # cobra root command, flags, main run() logic, TUI
+│   ├── dashboard.go                 # dashboard subcommand; deprecated --dashboard flag warning
 │   ├── repair.go                    # repair-worktrees subcommand (host-side git worktree repair)
 │   └── version.go                   # version subcommand
 ├── internal/
@@ -39,7 +40,7 @@ ccodolo/
 │   │   ├── config_test.go
 │   │   ├── migrate.go               # ccodolo.config → ccodolo.toml migration
 │   │   └── migrate_test.go
-│   ├── dashboard/                   # --dashboard TUI (bubbletea)
+│   ├── dashboard/                   # `ccodolo dashboard` TUI (bubbletea)
 │   │   ├── dashboard.go             # Run(), backend detection
 │   │   ├── sources.go               # Stats/events feeds per backend, pause while attached
 │   │   ├── model.go                 # State, keys, actions
@@ -129,7 +130,7 @@ GOOS=windows go build -o /dev/null ./...   # the binary ships for Windows; catch
 - `embedded/scripts/session.sh` is PID 1 (the startup runner execs it) and runs the agent in the `agent` tmux session; user-facing behaviour: see [README → Sessions and Dashboard](README.md#sessions-and-dashboard). Its trap/background-`wait` shape is load-bearing: PID 1 has no default SIGTERM action, and sh defers traps until a foreground child exits, so a foreground wait would make `docker stop` hang until SIGKILL. `validate.yml` smoke-tests the exit status and stop latency, the only coverage of the tmux path
 - Every tmux call from the host passes `-f /etc/ccodolo/tmux.conf`: whichever call starts the server decides its config, and Ctrl+] detaching depends on it
 - Sessions are found by the `ccodolo.*` labels `runArgs` sets (`internal/docker/sessions.go`). Containers from before the labels are recovered from the `ccodolo-` name prefix, the `/workspace/<project>/…` mount, and the image tag; keep that fallback, because those containers can still be running
-- The dashboard must stay cheap on the host: long-lived `docker stats`/`docker events` streams, not a process per tick; tmux state read on selection, not per tick; streams paused during `tea.ExecProcess`. Attaching runs `docker exec` as a child of the Go process, the shape behind #29. If a terminal breaks there, the Unix fix is to hand off via `execCLI` and re-exec `ccodolo --dashboard` afterwards
+- The dashboard must stay cheap on the host: long-lived `docker stats`/`docker events` streams, not a process per tick; tmux state read on selection, not per tick; streams paused during `tea.ExecProcess`. Attaching runs `docker exec` as a child of the Go process, the shape behind #29. If a terminal breaks there, the Unix fix is to hand off via `execCLI` and re-exec `ccodolo dashboard` afterwards
 - Dockerfile is generated dynamically from `embedded/Dockerfile.tmpl` using `text/template`
 - Config, merge semantics, and `ccodolo.config` migration: see [README → Configuration](README.md#configuration); code lives in `internal/config/`
 - Image architecture (multi-stage `COPY --from`, `FROM scratch` squash, content-addressed tags): see [README → Image Architecture](README.md#image-architecture)

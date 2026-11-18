@@ -1,4 +1,4 @@
-// Package dashboard implements `ccodolo --dashboard`: a live view of every
+// Package dashboard implements `ccodolo dashboard`: a live view of every
 // running ccodolo session with actions to attach, open shells, run
 // background commands, review the agent's output, and stop sessions.
 package dashboard
