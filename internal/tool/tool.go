@@ -318,7 +318,7 @@ var builtinCatalog = []Tool{
 		Name:         "skills",
 		Category:     "package-manager",
 		Description:  "Vercel skill installer",
-		DefaultTag:   "1.8.1",
+		DefaultTag:   "1.9.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g skills@{{.Tag}}",
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.162.0",
+		DefaultTag:   "4.163.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -617,7 +617,7 @@ var builtinCatalog = []Tool{
 		Category:    "testing",
 		Description: "Obscura headless browser for AI agents and web scraping",
 		SourceImage: "h4ckf0r0day/obscura",
-		DefaultTag:  "0.2.6",
+		DefaultTag:  "0.2.7",
 		Instructions: []string{
 			"COPY --from=%s /obscura /usr/local/bin/obscura",
 		},
