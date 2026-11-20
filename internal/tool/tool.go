@@ -98,7 +98,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "Bun runtime",
 		SourceImage: "oven/bun",
-		DefaultTag:  "1.4.4",
+		DefaultTag:  "1.4.5",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/bun /usr/local/bin/bun",
 			"RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx",
@@ -183,7 +183,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "PHP",
 		SourceImage: "docker.io/library/php",
-		DefaultTag:  "8.5",
+		DefaultTag:  "8.6",
 		TagSuffix:   "-cli",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/php* /usr/local/bin/",
@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.21.0",
+		DefaultTag:   "12.22.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -331,7 +331,7 @@ var builtinCatalog = []Tool{
 		Category:    "package-manager",
 		Description: "Python package manager (astral-sh/uv)",
 		SourceImage: "ghcr.io/astral-sh/uv",
-		DefaultTag:  "0.13.8",
+		DefaultTag:  "0.13.9",
 		Instructions: []string{
 			"COPY --from=%s /uv /uvx /usr/local/bin/",
 		},
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.163.0",
+		DefaultTag:   "4.165.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -528,7 +528,7 @@ var builtinCatalog = []Tool{
 		Name:         "hugo",
 		Category:     "testing",
 		Description:  "Hugo static site generator (extended)",
-		DefaultTag:   "0.170.0",
+		DefaultTag:   "0.170.1",
 		Dependencies: []string{"golang"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v{{.Tag}}/hugo_extended_{{.Tag}}_linux-$(dpkg --print-architecture).tar.gz" \` + "\n" +
@@ -560,7 +560,7 @@ var builtinCatalog = []Tool{
 		Name:         "playwright-cli",
 		Category:     "testing",
 		Description:  "Playwright agent CLI with SKILLs (@playwright/cli)",
-		DefaultTag:   "0.1.24",
+		DefaultTag:   "0.1.25",
 		Dependencies: []string{"playwright"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://registry.npmjs.org/@playwright/cli/-/cli-{{.Tag}}.tgz" \` + "\n" +
@@ -653,7 +653,7 @@ var builtinCatalog = []Tool{
 		Name:        "gh",
 		Category:    "utils",
 		Description: "GitHub CLI",
-		DefaultTag:  "2.104.0",
+		DefaultTag:  "2.105.0",
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/cli/cli/releases/download/v{{.Tag}}/gh_{{.Tag}}_linux_$(dpkg --print-architecture).tar.gz" \` + "\n" +
 				`  | tar xz --strip-components=2 -C /usr/local/bin --wildcards '*/bin/gh'`,
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.3.4",
+		DefaultTag:  "0.3.5",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
