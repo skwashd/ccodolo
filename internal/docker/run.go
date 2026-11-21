@@ -13,14 +13,18 @@ import (
 
 	"github.com/skwashd/ccodolo/internal/agent"
 	"github.com/skwashd/ccodolo/internal/config"
+	"github.com/skwashd/ccodolo/internal/secrets"
 )
 
 // defaultAppleMemory is the VM memory size for apple-runtime containers
 // when the config does not set one.
 const defaultAppleMemory = "4g"
 
-// Run launches a new container.
-func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extraArgs []string) error {
+// Run launches a new container. secretVars are added to the environment
+// handed to the runtime CLI and reach the container through a bare
+// -e NAME each, so their values are never written to disk or put in argv.
+// The caller has already checked them with secrets.CheckConflicts.
+func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extraArgs []string, secretVars []secrets.Var) error {
 	a, err := agent.Parse(cfg.Agent)
 	if err != nil {
 		return err
@@ -38,7 +42,7 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 	containerWorkspace := fmt.Sprintf("/workspace/%s/%s", project, workdirBase)
 	name := containerName(project, workdir, time.Now())
 
-	args, err := runArgs(rt, cfg, meta, project, projectPath, workdir, name, containerWorkspace, imageTag, extraArgs)
+	args, err := runArgs(rt, cfg, meta, project, projectPath, workdir, name, containerWorkspace, imageTag, secrets.Names(secretVars), extraArgs)
 	if err != nil {
 		return err
 	}
@@ -46,8 +50,8 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 	// Warn about any selected tool whose startup hook will be skipped
 	// because a required variable won't reach the container. This is
 	// informational only — it does not add -e flags itself. The user is
-	// still responsible for getting the variable in via [environment] or
-	// passthrough_vars. A resolve failure here is not fatal — config and
+	// still responsible for getting the variable in via [environment],
+	// passthrough_vars or a secrets source. A resolve failure here is not fatal — config and
 	// the image build have already succeeded — so just skip the warning.
 	if resolved, resolveErr := resolveTools(cfg, meta); resolveErr == nil {
 		available := make(map[string]bool)
@@ -61,6 +65,11 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 				available[name] = true
 			}
 		}
+		for _, v := range secretVars {
+			if v.Value != "" {
+				available[v.Name] = true
+			}
+		}
 		warnMissingHookVars(missingHookVars(resolved, available))
 	}
 
@@ -72,7 +81,78 @@ func Run(rt Runtime, cfg *config.Config, project, workdir, imageTag string, extr
 		}
 	}
 
-	return execCLI(rt, args)
+	return execCLI(rt, args, secretEnv(secretVars))
+}
+
+// secretEnv formats secret vars as NAME=value entries for the environment
+// handed to the runtime CLI.
+func secretEnv(vars []secrets.Var) []string {
+	if len(vars) == 0 {
+		return nil
+	}
+	env := make([]string, len(vars))
+	for i, v := range vars {
+		env[i] = v.Name + "=" + v.Value
+	}
+	return env
+}
+
+// mergeEnv returns base with each extra NAME=value entry applied. An entry
+// whose name is already in base replaces it rather than being appended:
+// with duplicates, which one wins is up to the callee. Neither input is
+// modified.
+func mergeEnv(base, extra []string) []string {
+	return mergeEnvFold(base, extra, runtime.GOOS == "windows")
+}
+
+// mergeEnvFold is mergeEnv with the host's case rule passed in: environment
+// variable names are case-insensitive on Windows.
+func mergeEnvFold(base, extra []string, foldCase bool) []string {
+	name := func(entry string) string {
+		// Search from the second byte: Windows keeps per-drive working
+		// directories in entries such as `=C:=C:\dir`, whose name starts
+		// with "=".
+		n := entry
+		if len(entry) > 0 {
+			if i := strings.IndexByte(entry[1:], '='); i >= 0 {
+				n = entry[:i+1]
+			}
+		}
+		if foldCase {
+			n = strings.ToUpper(n)
+		}
+		return n
+	}
+
+	// The last extra entry for a name wins.
+	replacement := make(map[string]string, len(extra))
+	for _, entry := range extra {
+		replacement[name(entry)] = entry
+	}
+
+	merged := make([]string, 0, len(base)+len(extra))
+	placed := make(map[string]bool, len(extra))
+	for _, entry := range base {
+		n := name(entry)
+		repl, ok := replacement[n]
+		if !ok {
+			merged = append(merged, entry)
+			continue
+		}
+		// Replace the first occurrence in place and drop any later ones.
+		if !placed[n] {
+			merged = append(merged, repl)
+			placed[n] = true
+		}
+	}
+	for _, entry := range extra {
+		n := name(entry)
+		if !placed[n] {
+			merged = append(merged, replacement[n])
+			placed[n] = true
+		}
+	}
+	return merged
 }
 
 // credentialMountWarnings returns one warning per config volume that mounts
@@ -173,12 +253,15 @@ func CheckMounts(rt Runtime, cfg *config.Config, workdir, projectPath string) er
 // container. containerName and containerWorkspace are precomputed by Run so
 // this stays deterministic under test (the timestamped name is the only
 // nondeterministic input). It still consults the filesystem for agent extra
-// file/dir mounts and the host environment for passthrough vars.
+// file/dir mounts and the host environment for passthrough vars. secretNames
+// are names only: runArgs never sees a secret value, so it cannot put one
+// in argv.
 func runArgs(
 	rt Runtime,
 	cfg *config.Config,
 	meta agent.Meta,
 	project, projectPath, workdir, containerName, containerWorkspace, imageTag string,
+	secretNames []string,
 	extraArgs []string,
 ) ([]string, error) {
 	args := []string{"run", "--rm", "-it"}
@@ -274,9 +357,15 @@ func runArgs(
 		args = append(args, "-e", name)
 	}
 
+	// Secrets. Run puts each value in the environment handed to the runtime
+	// CLI, which resolves a bare name from there on both runtimes.
+	for _, name := range secretNames {
+		args = append(args, "-e", name)
+	}
+
 	// Forward TERM and COLORTERM from the host shell so the container's
 	// interactive shell gets a matching terminal capability set. Config
-	// [environment] and passthrough_vars entries take precedence — skip a
+	// [environment], passthrough_vars and secrets take precedence — skip a
 	// var the user already specified there. Unlike passthrough_vars, a
 	// var that's unset on the host is skipped silently: this is a
 	// convenience default, not an explicit user request.
@@ -286,7 +375,7 @@ func runArgs(
 		if _, ok := cfg.Environment[name]; ok {
 			continue
 		}
-		if slices.Contains(cfg.PassthroughVars, name) {
+		if slices.Contains(cfg.PassthroughVars, name) || slices.Contains(secretNames, name) {
 			continue
 		}
 		if v := hostTermVar(name); v != "" {
@@ -429,5 +518,5 @@ func Exec(rt Runtime, project, workdir string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Attaching to container: %s\n", match.ID)
-	return execCLI(rt, []string{"exec", "-it", match.ID, "/bin/zsh"})
+	return execCLI(rt, []string{"exec", "-it", match.ID, "/bin/zsh"}, nil)
 }

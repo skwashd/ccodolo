@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"os/signal"
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
@@ -17,6 +21,7 @@ import (
 	"github.com/skwashd/ccodolo/internal/dashboard"
 	"github.com/skwashd/ccodolo/internal/docker"
 	"github.com/skwashd/ccodolo/internal/project"
+	"github.com/skwashd/ccodolo/internal/secrets"
 	"github.com/skwashd/ccodolo/internal/tool"
 )
 
@@ -34,7 +39,24 @@ var (
 	flagBuildOnly   bool
 	flagReconfigure bool
 	flagDashboard   bool
+	flagSecrets     []string
+	flagNoSecrets   bool
 )
+
+// runRoot reaches the container runtime and the secrets providers only
+// through these, so tests can check what a launch would do, and in what
+// order, without docker or a provider.
+var (
+	dockerExec     = docker.Exec
+	dockerBuild    = docker.Build
+	dockerRun      = docker.Run
+	secretsLookup  = secrets.Lookup
+	secretsResolve = secrets.Resolve
+)
+
+// secretsFetchTimeout bounds the whole fetch. It is long enough to answer
+// an approval prompt (Touch ID, a password) from the provider's app.
+const secretsFetchTimeout = 2 * time.Minute
 
 var rootCmd = &cobra.Command{
 	Use:   "ccodolo",
@@ -57,6 +79,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagRebuild, "rebuild", false, "Force image rebuild")
 	rootCmd.Flags().BoolVar(&flagBuildOnly, "build-only", false, "Build the image but don't launch a container")
 	rootCmd.Flags().BoolVar(&flagReconfigure, "reconfigure", false, "Update agent and tools for an existing project")
+	rootCmd.Flags().StringArrayVar(&flagSecrets, "secrets", nil, "Secrets source as <provider>:<ref>, for this run only; repeatable. Replaces [secrets] from config")
+	rootCmd.Flags().BoolVar(&flagNoSecrets, "no-secrets", false, "Skip the secrets sources in config for this run")
 	// Deprecated in favour of the dashboard subcommand; hidden from help but
 	// still accepted so existing scripts and aliases keep working.
 	rootCmd.Flags().BoolVar(&flagDashboard, "dashboard", false, "Deprecated: use `ccodolo dashboard`")
@@ -64,7 +88,7 @@ func init() {
 
 	// --project is required except with --dashboard, so runRoot checks it
 	// rather than cobra.MarkFlagRequired.
-	for _, other := range []string{"project", "exec", "reconfigure", "build-only", "create-new"} {
+	for _, other := range []string{"project", "exec", "reconfigure", "build-only", "create-new", "secrets", "no-secrets"} {
 		rootCmd.MarkFlagsMutuallyExclusive("dashboard", other)
 	}
 	_ = rootCmd.RegisterFlagCompletionFunc("project", completeProjects)
@@ -100,6 +124,27 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Secrets are set when a container starts, so --secrets only makes
+	// sense on a run that starts one. Parsing the specs here means a typo
+	// fails before anything is created or built; it does not touch a
+	// provider.
+	var flagSources []secrets.Source
+	if len(flagSecrets) > 0 {
+		switch {
+		case flagNoSecrets:
+			return fmt.Errorf("--secrets and --no-secrets are mutually exclusive")
+		case flagExec:
+			return fmt.Errorf("--secrets cannot be used with --exec: secrets are set when the container starts; --exec attaches to a running one")
+		case flagBuildOnly:
+			return fmt.Errorf("--secrets cannot be used with --build-only: secrets are set when the container starts, and are not available during the image build")
+		}
+		var err error
+		flagSources, err = secrets.ParseSpecs(flagSecrets)
+		if err != nil {
+			return err
+		}
+	}
+
 	// --build-only never prompts or launches a container, so it needs no
 	// console.
 	if !flagBuildOnly {
@@ -128,6 +173,20 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(projectPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// Work out the secrets sources and check that this build has each
+	// provider, so a default build asked to launch with secrets fails
+	// before a project is created or an image is built. Nothing is fetched
+	// yet, and neither project creation nor --reconfigure changes [secrets].
+	// --exec and --build-only skip this: neither launches a container, so a
+	// default build can still use a config that has [secrets].
+	var secretSources []secrets.Source
+	if !flagExec && !flagBuildOnly {
+		secretSources, err = launchSecretSources(cfg, flagSources)
+		if err != nil {
+			return err
+		}
 	}
 
 	// CLI --agent overrides config.
@@ -187,7 +246,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("copying template: %w", err)
 		}
 
-		// Tool selection for new projects.
+		// Tool selection for new projects. A new project has no config
+		// file yet, so every tool in cfg so far came from the global config.
+		inheritedTools := maps.Clone(cfg.Tools)
 		if flagTools != "" {
 			tools, err := parseToolFlag(flagTools)
 			if err != nil {
@@ -203,8 +264,12 @@ func runRoot(cmd *cobra.Command, args []string) error {
 			cfg.SetTools(selected)
 		}
 
-		// Save config for new project.
-		if err := config.Save(cfg, config.ProjectConfigPath(projectPath)); err != nil {
+		// Save only what belongs to the project. cfg is merged with the
+		// global config, and saving it whole would copy global settings
+		// into the project file: build steps would then run twice, and
+		// [secrets], volumes and the rest would stop following later
+		// changes to the global file.
+		if err := config.Save(newProjectConfig(cfg, inheritedTools), config.ProjectConfigPath(projectPath)); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
 	}
@@ -261,9 +326,10 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Handle --exec mode.
+	// Handle --exec mode. [secrets] from config is ignored: the running
+	// container already has the values it was started with.
 	if flagExec {
-		return docker.Exec(rt, flagProject, workdir)
+		return dockerExec(rt, flagProject, workdir)
 	}
 
 	// A bad mount should fail before the slow image build, not after it.
@@ -272,7 +338,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build image.
-	imageTag, err := docker.Build(rt, cfg, flagProject, projectPath, flagRebuild)
+	imageTag, err := dockerBuild(rt, cfg, flagProject, projectPath, flagRebuild)
 	if err != nil {
 		return fmt.Errorf("building image: %w", err)
 	}
@@ -283,8 +349,87 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Fetch secrets only now, so the provider's approval prompt appears
+	// next to the launch rather than before a build that can take minutes.
+	secretVars, err := fetchSecrets(secretSources, cfg)
+	if err != nil {
+		return err
+	}
+
 	// Run container.
-	return docker.Run(rt, cfg, flagProject, workdir, imageTag, args)
+	return dockerRun(rt, cfg, flagProject, workdir, imageTag, args, secretVars)
+}
+
+// newProjectConfig returns the config to save for a new project: the agent,
+// and each selected tool that the global config does not already give it at
+// the same version.
+func newProjectConfig(cfg *config.Config, inheritedTools map[string]string) *config.Config {
+	projectCfg := &config.Config{Agent: cfg.Agent}
+	for name, version := range cfg.Tools {
+		if inherited, ok := inheritedTools[name]; ok && inherited == version {
+			continue
+		}
+		if projectCfg.Tools == nil {
+			projectCfg.Tools = make(map[string]string)
+		}
+		projectCfg.Tools[name] = version
+	}
+	return projectCfg
+}
+
+// launchSecretSources returns the secrets sources for a launch: the
+// --secrets flag if it was given, nothing with --no-secrets, and otherwise
+// [secrets] from config. It fails if this build lacks a provider.
+func launchSecretSources(cfg *config.Config, flagSources []secrets.Source) ([]secrets.Source, error) {
+	if flagNoSecrets {
+		return nil, nil
+	}
+	sources, fromConfig := flagSources, false
+	if len(sources) == 0 {
+		sources, fromConfig = secrets.SourcesFromConfig(cfg), true
+	}
+	for _, src := range sources {
+		if _, err := secretsLookup(src.Provider); err != nil {
+			if fromConfig {
+				return nil, fmt.Errorf("[secrets] in config: %w (or pass --no-secrets to launch without them)", err)
+			}
+			return nil, err
+		}
+	}
+	return sources, nil
+}
+
+// fetchSecrets fetches the variables for sources and checks that they can
+// be injected alongside cfg. Any failure aborts the launch. Ctrl+C and the
+// timeout end the wait even if the provider is stuck on a prompt: see
+// secrets.Resolve.
+func fetchSecrets(sources []secrets.Source, cfg *config.Config) ([]secrets.Var, error) {
+	if len(sources) == 0 {
+		return nil, nil
+	}
+
+	names := make([]string, len(sources))
+	for i, src := range sources {
+		names[i] = src.String()
+	}
+	fmt.Fprintf(os.Stderr, "Fetching secrets from %s\n", strings.Join(names, ", "))
+
+	// stop runs before the runtime CLI takes over the terminal, so Ctrl+C
+	// goes back to its normal handling for the container.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	ctx, cancel := context.WithTimeout(ctx, secretsFetchTimeout)
+	defer cancel()
+
+	vars, err := secretsResolve(ctx, sources)
+	if err != nil {
+		return nil, err
+	}
+	vars, err = secrets.CheckConflicts(vars, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("secrets cannot be injected:\n%w", err)
+	}
+	return vars, nil
 }
 
 // runToolTUI launches the interactive tool selection TUI.
