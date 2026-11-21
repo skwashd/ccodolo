@@ -35,6 +35,15 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # zig cc is the C compiler for the cgo targets of the ccodolo-1password
+      # build (see .goreleaser.yml). The action verifies the download's
+      # minisign signature. No cache in a release job.
+      - name: Set up Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.1
+          use-cache: false
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
@@ -48,6 +57,9 @@ jobs:
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # In the workspace (and in .gitignore), not the runner's home.
+          ZIG_GLOBAL_CACHE_DIR: ${{ github.workspace }}/zig-cache
+          ZIG_LOCAL_CACHE_DIR: ${{ github.workspace }}/zig-cache
 
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
