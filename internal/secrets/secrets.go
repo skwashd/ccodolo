@@ -65,6 +65,20 @@ var knownProviders = map[string]string{
 // registry holds the providers compiled into this build.
 var registry = map[string]Provider{}
 
+// version is the ccodolo version, for providers that identify their client
+// to the service.
+var version = "dev"
+
+// SetVersion records the ccodolo version for providers that send one.
+func SetVersion(v string) {
+	version = v
+}
+
+// Version returns the version recorded by SetVersion.
+func Version() string {
+	return version
+}
+
 // Register adds a provider under name. It is called from init in a tagged
 // provider file, so a name that is unknown or registered twice is a
 // programming error and panics.

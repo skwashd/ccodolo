@@ -21,6 +21,7 @@ func SetVersionInfo(version, commit, date string) {
 	buildVersion = version
 	buildCommit = commit
 	buildDate = date
+	secrets.SetVersion(version)
 }
 
 var versionCmd = &cobra.Command{
