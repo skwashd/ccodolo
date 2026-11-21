@@ -15,6 +15,11 @@ jobs:
   # and console, which is what catches path and TTY bugs cross-compiling
   # cannot. Lint there is also what checks exec_windows.go. -race needs
   # cgo and a C toolchain, so only the Linux leg runs the detector.
+  #
+  # Each step runs twice: once for the default build and once with the
+  # secrets_1password tag. Without the tagged runs, the 1Password provider
+  # (internal/secrets/onepassword.go) is never compiled, tested or linted.
+  # The tagged tests make no live SDK call.
   go-validation:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -53,6 +58,20 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
 
+      - name: Run go vet (1password)
+        run: go vet -tags=secrets_1password ./...
+
+      - name: Run tests (1password)
+        shell: bash
+        env:
+          TEST_FLAGS: ${{ matrix.test-flags }}
+        run: go test $TEST_FLAGS -tags=secrets_1password ./...
+
+      - name: Run golangci-lint (1password)
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          args: --build-tags=secrets_1password
+
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-24.04
@@ -81,6 +100,42 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: go build -o /dev/null ./...
+
+  # Builds the ccodolo-1password release build for all six targets with the
+  # real goreleaser config, so a break in the zig cross-compile shows up on
+  # the PR and not on release day. The matrix above stays cgo-free.
+  build-1password:
+    name: Build (1password)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Keep the version and the pin in step with release.yml.
+      - name: Set up Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.1
+          use-cache: false
+
+      - name: Build snapshot
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: "v2.15.2"
+          args: build --snapshot --clean --id ccodolo-1password
+        env:
+          ZIG_GLOBAL_CACHE_DIR: ${{ github.workspace }}/zig-cache
+          ZIG_LOCAL_CACHE_DIR: ${{ github.workspace }}/zig-cache
 
   docker-build:
     name: Build image
