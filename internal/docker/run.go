@@ -260,22 +260,18 @@ func runArgs(
 		args = append(args, "-e", "CCODOLO_TMUX=0")
 	}
 
-	// Passthrough env vars from the host shell. Docker reads the value of a
-	// bare `-e NAME` from its own environment (execCLI hands ours to it on
-	// every platform). Apple's container CLI is not documented to do the
-	// same, so for that backend the value is resolved host-side into
-	// -e NAME=value.
+	// Passthrough env vars from the host shell. Both runtimes read the value
+	// of a bare `-e NAME` from their own environment, which execCLI hands
+	// them on every platform. Apple documents this under `container run`:
+	// https://github.com/apple/container/blob/main/docs/command-reference.md
+	// A bare name keeps the value out of argv, where any local user could
+	// read it with ps.
 	for _, name := range cfg.PassthroughVars {
-		v, ok := os.LookupEnv(name)
-		if !ok {
+		if _, ok := os.LookupEnv(name); !ok {
 			fmt.Fprintf(os.Stderr, "Warning: passthrough_vars entry %q is not set on host; skipping\n", name)
 			continue
 		}
-		if rt == RuntimeApple {
-			args = append(args, "-e", name+"="+v)
-		} else {
-			args = append(args, "-e", name)
-		}
+		args = append(args, "-e", name)
 	}
 
 	// Forward TERM and COLORTERM from the host shell so the container's

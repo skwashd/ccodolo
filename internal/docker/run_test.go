@@ -122,15 +122,23 @@ func TestRunArgsDocker(t *testing.T) {
 	}
 }
 
-func TestRunArgsApplePassthroughResolved(t *testing.T) {
+// Both runtimes take a bare -e NAME for passthrough_vars, so the host value
+// never appears in argv (and so never in ps).
+func TestRunArgsApplePassthroughBareName(t *testing.T) {
 	args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "")
-	want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", defaultAppleMemory)
+	want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET", defaultAppleMemory)
 	if !reflect.DeepEqual(args, want) {
 		t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 	}
-	for i, a := range args {
-		if a == "CCODOLO_TEST_SET" {
-			t.Errorf("apple runtime should not emit bare passthrough name (arg %d)", i)
+}
+
+func TestRunArgsPassthroughValueNotInArgv(t *testing.T) {
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		args, _, _ := runArgsFixture(t, rt, "")
+		for i, a := range args {
+			if strings.Contains(a, "sekrit") {
+				t.Errorf("%s: passthrough value leaked into argv (arg %d: %q)", rt, i, a)
+			}
 		}
 	}
 }
@@ -146,7 +154,7 @@ func TestRunArgsMemory(t *testing.T) {
 
 	t.Run("apple configured overrides default", func(t *testing.T) {
 		args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "2g")
-		want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", "2g")
+		want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET", "2g")
 		if !reflect.DeepEqual(args, want) {
 			t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 		}
