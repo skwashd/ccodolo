@@ -183,7 +183,7 @@ var builtinCatalog = []Tool{
 		Category:    "runtime",
 		Description: "PHP",
 		SourceImage: "docker.io/library/php",
-		DefaultTag:  "8.5",
+		DefaultTag:  "8.6",
 		TagSuffix:   "-cli",
 		Instructions: []string{
 			"COPY --from=%s /usr/local/bin/php* /usr/local/bin/",
