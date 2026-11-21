@@ -800,3 +800,284 @@ func TestListProjects(t *testing.T) {
 		t.Errorf("ListProjects() = %v, want %v", got, want)
 	}
 }
+
+func TestSecretsLoad(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+		want map[string]SecretRefs
+	}{
+		{"string", "[secrets]\n1password = \"acct/env1\"\n", map[string]SecretRefs{"1password": {"acct/env1"}}},
+		{"array", "[secrets]\n1password = [\"acct/env1\", \"env2\"]\n", map[string]SecretRefs{"1password": {"acct/env1", "env2"}}},
+		{"empty array", "[secrets]\n1password = []\n", map[string]SecretRefs{"1password": {}}},
+		{"absent", "agent = \"claude\"\n", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "ccodolo.toml")
+			if err := os.WriteFile(path, []byte(tt.toml), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := loadFile(path)
+			if err != nil {
+				t.Fatalf("loadFile error: %v", err)
+			}
+			if !reflect.DeepEqual(cfg.Secrets, tt.want) {
+				t.Errorf("Secrets = %#v, want %#v", cfg.Secrets, tt.want)
+			}
+		})
+	}
+}
+
+func TestSecretsLoadRejectsWrongTypes(t *testing.T) {
+	for _, content := range []string{
+		"[secrets]\n1password = 1\n",
+		"[secrets]\n1password = [1, 2]\n",
+		"[secrets]\n1password = { env = \"x\" }\n",
+	} {
+		path := filepath.Join(t.TempDir(), "ccodolo.toml")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadFile(path); err == nil {
+			t.Errorf("expected an error loading %q", content)
+		}
+	}
+}
+
+func TestSecretsSaveAndLoad(t *testing.T) {
+	tests := []struct {
+		name     string
+		refs     SecretRefs
+		wantLine string
+	}{
+		{"single ref is an array", SecretRefs{"acct/env1"}, `1password = ["acct/env1"]`},
+		{"two refs are an array", SecretRefs{"acct/env1", "env2"}, `1password = ["acct/env1", "env2"]`},
+		{"no refs is an empty array", SecretRefs{}, `1password = []`},
+		{"quotes and backslashes are escaped", SecretRefs{`a"b\c/env`}, `1password = ["a\"b\\c/env"]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "ccodolo.toml")
+			cfg := &Config{Agent: "claude", Secrets: map[string]SecretRefs{"1password": tt.refs}}
+			if err := Save(cfg, path); err != nil {
+				t.Fatalf("Save error: %v", err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), tt.wantLine) {
+				t.Errorf("saved config missing %q:\n%s", tt.wantLine, data)
+			}
+			loaded, err := loadFile(path)
+			if err != nil {
+				t.Fatalf("loadFile error: %v\n%s", err, data)
+			}
+			if !reflect.DeepEqual(loaded.Secrets, cfg.Secrets) {
+				t.Errorf("round trip: got %#v, want %#v", loaded.Secrets, cfg.Secrets)
+			}
+		})
+	}
+}
+
+func TestSaveOmitsEmptySecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ccodolo.toml")
+	if err := Save(&Config{Agent: "claude"}, path); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "secrets") {
+		t.Errorf("saved config should omit an unset [secrets], got:\n%s", data)
+	}
+}
+
+func TestMergeSecrets(t *testing.T) {
+	t.Run("project refs are added to global refs", func(t *testing.T) {
+		global := &Config{Secrets: map[string]SecretRefs{"1password": {"shared"}}}
+		project := &Config{Secrets: map[string]SecretRefs{"1password": {"project"}}}
+		merged := Merge(global, project)
+		want := map[string]SecretRefs{"1password": {"shared", "project"}}
+		if !reflect.DeepEqual(merged.Secrets, want) {
+			t.Errorf("Secrets = %#v, want %#v", merged.Secrets, want)
+		}
+		for i, want := range []StepOrigin{OriginGlobal, OriginProject} {
+			if got := merged.SecretOrigin("1password", i); got != want {
+				t.Errorf("SecretOrigin(1password, %d) = %q, want %q", i, got, want)
+			}
+		}
+	})
+
+	t.Run("a ref in both is kept once, as a project ref", func(t *testing.T) {
+		global := &Config{Secrets: map[string]SecretRefs{"1password": {"a", "both"}}}
+		project := &Config{Secrets: map[string]SecretRefs{"1password": {"both", "b"}}}
+		merged := Merge(global, project)
+		want := map[string]SecretRefs{"1password": {"a", "both", "b"}}
+		if !reflect.DeepEqual(merged.Secrets, want) {
+			t.Errorf("Secrets = %#v, want %#v", merged.Secrets, want)
+		}
+		for i, want := range []StepOrigin{OriginGlobal, OriginProject, OriginProject} {
+			if got := merged.SecretOrigin("1password", i); got != want {
+				t.Errorf("SecretOrigin(1password, %d) = %q, want %q", i, got, want)
+			}
+		}
+		if err := Validate(merged); err != nil {
+			t.Errorf("merged config should validate: %v", err)
+		}
+	})
+
+	t.Run("absent project key inherits global", func(t *testing.T) {
+		global := &Config{Secrets: map[string]SecretRefs{"1password": {"shared"}}}
+		got := Merge(global, &Config{}).Secrets
+		want := map[string]SecretRefs{"1password": {"shared"}}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Secrets = %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("empty project list turns the provider off", func(t *testing.T) {
+		global := &Config{Secrets: map[string]SecretRefs{"1password": {"shared"}}}
+		project := &Config{Secrets: map[string]SecretRefs{"1password": {}}}
+		refs, ok := Merge(global, project).Secrets["1password"]
+		if !ok || len(refs) != 0 {
+			t.Errorf("expected the key present and empty, got %#v (present: %v)", refs, ok)
+		}
+	})
+
+	t.Run("project only", func(t *testing.T) {
+		project := &Config{Secrets: map[string]SecretRefs{"1password": {"a", "b"}}}
+		got := Merge(&Config{}, project).Secrets
+		if !reflect.DeepEqual(got, project.Secrets) {
+			t.Errorf("Secrets = %#v, want %#v", got, project.Secrets)
+		}
+	})
+
+	t.Run("neither", func(t *testing.T) {
+		if got := Merge(&Config{}, &Config{}).Secrets; got != nil {
+			t.Errorf("expected nil Secrets, got %#v", got)
+		}
+	})
+
+	t.Run("merged lists do not alias the inputs", func(t *testing.T) {
+		global := &Config{Secrets: map[string]SecretRefs{"1password": {"shared"}}}
+		merged := Merge(global, &Config{})
+		merged.Secrets["1password"][0] = "changed"
+		if global.Secrets["1password"][0] != "shared" {
+			t.Error("Merge aliased the global refs slice")
+		}
+	})
+}
+
+func TestMergeEnvironmentOrigins(t *testing.T) {
+	global := &Config{Environment: map[string]string{"A": "1", "B": "2"}}
+	project := &Config{Environment: map[string]string{"B": "3", "C": "4"}}
+	result := Merge(global, project)
+
+	for key, want := range map[string]StepOrigin{"A": OriginGlobal, "B": OriginProject, "C": OriginProject} {
+		if got := result.EnvironmentOrigin(key); got != want {
+			t.Errorf("EnvironmentOrigin(%q) = %q, want %q", key, got, want)
+		}
+	}
+
+	// A config that never went through Merge defaults to project.
+	direct := &Config{Environment: map[string]string{"A": "1"}}
+	if got := direct.EnvironmentOrigin("A"); got != OriginProject {
+		t.Errorf("unmerged EnvironmentOrigin = %q, want %q", got, OriginProject)
+	}
+}
+
+func TestSaveOmitsEnvironmentOrigins(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ccodolo.toml")
+	merged := Merge(&Config{Environment: map[string]string{"A": "1"}}, &Config{Agent: "claude"})
+	if err := Save(merged, path); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "global") || strings.Contains(strings.ToLower(string(data)), "origin") {
+		t.Errorf("saved config should not contain origins, got:\n%s", data)
+	}
+}
+
+func TestValidateSecrets(t *testing.T) {
+	tests := []struct {
+		name    string
+		secrets map[string]SecretRefs
+		wantErr string
+	}{
+		{"one ref", map[string]SecretRefs{"1password": {"acct/env"}}, ""},
+		{"several refs", map[string]SecretRefs{"1password": {"acct/env", "env2"}}, ""},
+		{"empty list", map[string]SecretRefs{"1password": {}}, ""},
+		{"unknown provider", map[string]SecretRefs{"vault": {"x"}}, `unknown secrets provider "vault"`},
+		{"empty ref", map[string]SecretRefs{"1password": {""}}, "empty ref under [secrets] 1password"},
+		{"blank ref", map[string]SecretRefs{"1password": {"  "}}, "empty ref under [secrets] 1password"},
+		{"duplicate ref", map[string]SecretRefs{"1password": {"a", "b", "a"}}, `duplicate ref "a" under [secrets] 1password`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Validate(&Config{Agent: "claude", Secrets: tt.secrets})
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %v, want one containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Load fails on a config file it cannot use, rather than dropping it, and
+// names the file.
+func TestLoadRejectsInvalidFiles(t *testing.T) {
+	tests := []struct {
+		name, global, project, want string
+	}{
+		{"bad TOML in global", "agent = \n", "", "ccodolo.toml"},
+		{"wrong type in global", "[secrets]\n1password = 1\n", "", "secrets value must be a string or an array of strings"},
+		{"unknown key in global", "[secret]\n1password = \"a\"\n", "", "unknown keys: secret"},
+		{"unknown key in project", "", "agent = \"claude\"\ntool = \"x\"\n", "unknown keys: tool"},
+		{"unknown nested key", "", "[build]\ncustom_step = [\"RUN x\"]\n", "unknown keys: build.custom_step"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			projectPath := filepath.Join(home, ".ccodolo", "projects", "demo")
+			if err := os.MkdirAll(projectPath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if tt.global != "" {
+				if err := os.WriteFile(filepath.Join(home, ".ccodolo", "ccodolo.toml"), []byte(tt.global), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.project != "" {
+				if err := os.WriteFile(ProjectConfigPath(projectPath), []byte(tt.project), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err := Load(projectPath)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error = %v, want one containing %q", err, tt.want)
+			}
+		})
+	}
+
+	t.Run("missing files are empty configs", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		t.Setenv("USERPROFILE", home)
+		if _, err := Load(filepath.Join(home, ".ccodolo", "projects", "demo")); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}

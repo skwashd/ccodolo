@@ -71,6 +71,30 @@ mkdir -p ~/.local/bin && mv ccodolo ~/.local/bin/
 > `curl` or `wget`, carries no quarantine flag, so Gatekeeper does not run
 > for those paths.
 
+#### The 1Password build
+
+`ccodolo-1password` is the same program with one addition: it can fetch
+secrets from 1Password at launch (see [Secrets](#secrets)). Install it
+instead of `ccodolo` if you want that. It is a separate build because the
+1Password SDK makes the binary about 18 MB larger. Both install a command
+named `ccodolo`, so install only one of them.
+
+```bash
+# macOS — Homebrew. The two casks conflict; uninstall ccodolo first.
+brew install --cask skwashd/tap/ccodolo-1password
+
+# Using Go. macOS and Linux need a C compiler, because the build uses cgo.
+go install -tags secrets_1password github.com/skwashd/ccodolo@latest
+
+# Or download an archive from GitHub releases and install it as above:
+#    macOS: ccodolo-1password_*_darwin_all.tar.gz
+#    Linux: ccodolo-1password_*_linux_amd64.tar.gz or ccodolo-1password_*_linux_arm64.tar.gz
+#    Windows: ccodolo-1password_*_windows_amd64.zip or ccodolo-1password_*_windows_arm64.zip
+```
+
+`ccodolo version` shows which one you have: its second line is
+`secrets: 1password` for this build and `secrets: none` for the default one.
+
 ### Build from source
 
 ```bash
@@ -80,6 +104,10 @@ go build -o ccodolo .
 # Optionally move to a directory in your PATH:
 sudo mv ccodolo /usr/local/bin/
 ```
+
+To include the 1Password secrets provider, build with
+`go build -tags secrets_1password -o ccodolo .` instead. On macOS and Linux
+this needs cgo, so a C compiler must be installed.
 
 ### Launch
 
@@ -120,9 +148,12 @@ ccodolo --project <project-name> [OPTIONS] [-- extra-agent-args]
 | `--exec` | Attach to existing container | — |
 | `--rebuild` | Force image rebuild | — |
 | `--build-only` | Build image without launching | — |
+| `--secrets <provider>:<ref>` | Fetch secrets from this source for this run, instead of the sources in `[secrets]`. Repeatable. Never saved to `ccodolo.toml`. See [Secrets](#secrets) | From configuration |
+| `--no-secrets` | Skip the sources in `[secrets]` for this run | — |
 
 ccodolo also has a `version` subcommand, which prints the build version, the
-commit hash, and the build date. There is no `--version` flag.
+commit hash, and the build date, then the secrets providers in this build
+(`secrets: none` or `secrets: 1password`). There is no `--version` flag.
 
 The `repair-worktrees` subcommand fixes git worktree links after container
 use — see [Git Worktrees](#git-worktrees). It takes an optional `--workdir`
@@ -148,6 +179,10 @@ source <(ccodolo completion zsh)
 ```
 
 Run `ccodolo completion <shell> --help` for the setup steps for each shell.
+
+`--secrets` cannot combine with `--exec`, `--build-only`, or `--no-secrets`.
+Secrets are set when a container starts: `--exec` attaches to one that is
+already running, and `--build-only` never starts one.
 
 `--reconfigure` cannot combine with `--create-new`, `--exec`, or
 `--build-only`. If you run `--reconfigure` with no terminal attached, for
@@ -182,6 +217,9 @@ ccodolo dashboard
 
 # Pass flags directly to the agent
 ccodolo --project myapp -- -p "Refactor the auth module"
+
+# Launch with secrets from a 1Password Environment (needs the ccodolo-1password build)
+ccodolo --project my-app --secrets 1password:my.1password.com/<env-id>
 
 # Build image for CI/CD
 IMAGE=$(ccodolo --project myapp --build-only)
@@ -321,7 +359,15 @@ readonly = true
 
 [environment]
 AWS_PROFILE = "dev"
+
+# Needs the ccodolo-1password build. One ref, or a list of refs.
+[secrets]
+1password = "my.1password.com/<env-id>"
 ```
+
+If a config file does not parse, has a value of the wrong type, or has a key
+ccodolo does not know (for example `[secret]` for `[secrets]`), ccodolo stops
+and names the file.
 
 ### Merge semantics (global + project)
 
@@ -337,13 +383,17 @@ AWS_PROFILE = "dev"
 | `volumes` | Union (project overrides if same container path) |
 | `environment` | Merged (project keys override global) |
 | `passthrough_vars` | Union, deduplicated, order preserved. Global entries first. |
+| `secrets` | Per provider key, global refs then project refs; a ref in both is fetched once. A project secret overrides a global secret of the same name. A project key with an empty list (`1password = []`) turns that provider off, including its global refs. |
 
 ### Passthrough env vars
 
 `passthrough_vars` lists host environment variable names to forward into
 the container at run time. ccodolo reads each value from the shell that
 invokes it. Use this for secrets, for example API keys and tokens. Do not
-commit these values to `ccodolo.toml`.
+commit these values to `ccodolo.toml`. To fetch the values from a secrets
+manager instead of your shell, see [Secrets](#secrets). For who can read a
+forwarded value, see
+[What this does and does not protect](#what-this-does-and-does-not-protect).
 
 The host name is reused as the container name. If a listed variable is not
 set on the host, ccodolo prints a warning to stderr and omits the variable.
@@ -355,6 +405,157 @@ appear *before* any `[table]` header (`[environment]`, `[build]`,
 
 Some tools use a passed-through variable to authenticate automatically at
 container start — see [Startup hooks](#startup-hooks).
+
+### Secrets
+
+ccodolo can fetch environment variables from a secrets source when it
+launches a container, and set them in the container's environment. The
+values are fetched on the host each time a container starts. They are never
+written to `ccodolo.toml` or to any other file.
+
+The one source so far is a
+[1Password Environment](https://developer.1password.com/docs/sdks/environments),
+read through the 1Password desktop app. It needs the `ccodolo-1password`
+build (see [The 1Password build](#the-1password-build)). 1Password's
+Environments API is in beta.
+
+```toml
+[secrets]
+1password = "my.1password.com/<env-id>"
+```
+
+Every variable in the Environment becomes an environment variable in the
+container, under the same name.
+
+**Set up the 1Password app.** Install the 1Password desktop app and sign in.
+In Settings → Developer, turn on "Integrate with other apps". When ccodolo
+asks for the Environment, the app asks you to approve it, for example with
+Touch ID. ccodolo fetches after the image build, so the prompt appears just
+before the container starts. If the prompt is not answered within two
+minutes, ccodolo stops. Ctrl+C stops it at once.
+
+**Find the Environment ID.** In the 1Password app, go to Developer → View
+Environments, open the Environment, open the ⋮ menu, and choose "Copy
+environment ID".
+
+**Choose the account.** A ref is `<account>/<env-id>`. The account is the
+name shown at the top of the sidebar in the 1Password app, or the account
+UUID. You can leave the account out and write only `<env-id>`; ccodolo then
+reads the account from the `OP_ACCOUNT` variable in your shell, which is the
+variable the `op` CLI uses. If the ref has no account and `OP_ACCOUNT` is
+not set, ccodolo stops and shows both forms.
+
+**Use several Environments.** Give a list. ccodolo fetches them in order.
+
+```toml
+[secrets]
+1password = ["my.1password.com/<shared-env-id>", "my.1password.com/<project-env-id>"]
+```
+
+`[secrets]` works in the global and the project config. ccodolo fetches the
+global sources and then the project sources. If a project source and a
+global source set the same variable, the project value is used; see
+[Merge semantics](#merge-semantics-global--project).
+
+**Use a different source for one run.** `--secrets <provider>:<ref>`
+replaces every source in `[secrets]` for that run. Repeat the flag for
+several sources. It is never saved.
+
+```bash
+ccodolo --project my-app --secrets 1password:my.1password.com/<env-id>
+```
+
+**Turn secrets off.** `--no-secrets` skips the configured sources for one
+run. To turn off a global source for one project, give that project an empty
+list:
+
+```toml
+[secrets]
+1password = []
+```
+
+**Name conflicts stop the launch.** A secret may not have the same name as:
+
+- a key in `[environment]`, in the global or the project config;
+- an entry in `passthrough_vars`;
+- a variable from another secrets source in the same config file, or from
+  another `--secrets` source.
+
+The error names each secret, the source it came from, and what it conflicts
+with. Rename or remove one of the two. A secret that has the same name as a
+host variable which is *not* in `passthrough_vars` is fine: the container
+gets the secret.
+
+**Some names are not allowed.** ccodolo hands the secrets to the `docker` or
+`container` CLI through that CLI's environment, so a secret may not be a
+name that changes how the CLI itself runs. These are:
+
+- where the CLI finds programs and files: `PATH`, `HOME`, `TMPDIR`,
+  `XDG_CONFIG_HOME`, `XDG_RUNTIME_DIR`, and on Windows `USERPROFILE`,
+  `APPDATA`, `LOCALAPPDATA`, `SystemRoot` and similar;
+- how the CLI reaches the daemon: `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`,
+  `ALL_PROXY` (in either case), `SSL_CERT_FILE`, `SSL_CERT_DIR`,
+  `SSH_AUTH_SOCK`;
+- docker CLI settings, for example `DOCKER_HOST`, `DOCKER_CONFIG` and
+  `DOCKER_CONTEXT`, and any name that starts with `DOCKER_CLI_`;
+- Go runtime settings, for example `GODEBUG`;
+- any name that starts with `LD_` or `DYLD_`.
+
+Other `DOCKER_` names, for example `DOCKER_USERNAME` and `DOCKER_PASSWORD`,
+are allowed. The full list is in `internal/secrets/inject.go`. Names that
+start with `CCODOLO_` are reserved for ccodolo. A name must also be a valid variable name (letters,
+digits and `_`, not starting with a digit). If an Environment contains one
+of these, ccodolo stops and names it. Rename the variable in 1Password. To
+set a variable such as `PATH` inside the container, use `[environment]`.
+
+**Any failure stops the launch.** If a source cannot be fetched, ccodolo
+does not start the container with some of its secrets missing.
+
+**The default build has no providers.** If you ask the default `ccodolo`
+build to launch with secrets, from `--secrets` or from `[secrets]`, it stops
+before the image build and tells you to install `ccodolo-1password`.
+`--no-secrets` lets it launch without them. `--exec` and `--build-only`
+never use secrets, so they work in any build with any config.
+
+Things to know:
+
+- Secrets are set when the container starts. They are not available during
+  the image build, so `custom_steps` and `root_steps` cannot use them.
+- A [startup hook](#startup-hooks) that waits for a variable runs when a
+  secret supplies it.
+- An `--exec` shell and a [dashboard](#dashboard) shell see the same
+  variables as the agent.
+- Linux: the Flatpak and Snap installs of 1Password are not supported. They
+  sandbox the app, and ccodolo may not find its library. Use the `.deb`,
+  `.rpm` or tarball install.
+- Intel Macs: the macOS binary is universal and includes an Intel build, but
+  nobody has tested it on an Intel Mac.
+
+### What this does and does not protect
+
+This applies to `[environment]`, `passthrough_vars` and `[secrets]` alike.
+All three put values in the container's environment.
+
+- Every process in the container can read them. That includes the agent,
+  and anything the agent runs.
+- On the host, anyone who can use the Docker socket can read them with
+  `docker inspect`. With the Apple runtime, the same goes for anyone who
+  can run `container inspect`.
+
+So none of the three hides a value from the agent. Give the container only
+credentials you are willing to let the agent use, and prefer ones with a
+narrow scope and a short life.
+
+What differs is where else the value appears on the host:
+
+| | In `ccodolo.toml` | In the runtime CLI's arguments (visible in `ps`) |
+|---|---|---|
+| `[environment]` | Yes | Yes |
+| `passthrough_vars` | No | No |
+| `[secrets]` | No | No |
+
+A value from `passthrough_vars` or `[secrets]` is passed to the runtime CLI
+in its environment, not in its arguments, and is never written to a file.
 
 ### Container memory
 
@@ -547,8 +748,9 @@ Warning: skipping startup hook for "acli": JIRA_TOKEN, JIRA_SITE, JIRA_USER not 
 ```
 
 This does not add passthrough, mounts, or any other plumbing — getting the
-variables into the container is still up to `passthrough_vars` or
-`[environment]` (see [Passthrough env vars](#passthrough-env-vars)). A hook
+variables into the container is still up to `passthrough_vars`,
+`[environment]` or `[secrets]` (see
+[Passthrough env vars](#passthrough-env-vars) and [Secrets](#secrets)). A hook
 that exits non-zero logs a one-line warning inside the container and the
 agent still launches; hook output is written to
 `/tmp/ccodolo-startup.log` inside the container.
@@ -779,8 +981,9 @@ agent-specific project directories, for isolation between agents.
 
 By default, ccodolo does not forward host environment variables into the
 container. To forward specific variables, for example API keys, add them to
-`passthrough_vars` (see [Passthrough env vars](#passthrough-env-vars)). To
-mount credential files, for example `~/.aws`, use `[[volumes]]` instead.
+`passthrough_vars` (see [Passthrough env vars](#passthrough-env-vars)), or
+fetch them from a secrets manager with `[secrets]` (see
+[Secrets](#secrets)). To mount credential files, for example `~/.aws`, use `[[volumes]]` instead.
 
 A `[[volumes]]` host path must already exist; ccodolo does not create an
 empty directory for it. With the Docker runtime neither path may contain a

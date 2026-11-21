@@ -1,11 +1,15 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -24,10 +28,69 @@ type Config struct {
 	Volumes         []Volume          `toml:"volumes"`
 	Environment     map[string]string `toml:"environment"`
 	PassthroughVars []string          `toml:"passthrough_vars"`
+
+	// Secrets names the secret sources to fetch at launch, keyed by
+	// provider name ("1password"). A map keeps a new provider to zero
+	// schema changes. A key that is present with an empty list is not the
+	// same as an absent key: see Merge.
+	Secrets map[string]SecretRefs `toml:"secrets,omitempty"`
+
+	// EnvironmentOrigins records which config file each Environment key
+	// came from, so a secret that clashes with one can name the file.
+	// Populated by Merge; never serialised. Read it through
+	// EnvironmentOrigin, for the same reason as CustomStepOrigin.
+	EnvironmentOrigins map[string]StepOrigin `toml:"-"`
+
+	// SecretOrigins runs parallel to each Secrets list, recording which
+	// config file each ref came from, so a project secret can override a
+	// global one of the same name. Populated by Merge; never serialised.
+	// Read it through SecretOrigin, for the same reason as CustomStepOrigin.
+	SecretOrigins map[string][]StepOrigin `toml:"-"`
+}
+
+// SecretProviderNames returns every secrets provider name that may appear
+// as a key under [secrets]. It lists providers that exist in the codebase,
+// whether or not this build has them compiled in: a config must validate
+// the same way in every build (see internal/secrets for the build tags).
+func SecretProviderNames() []string {
+	return []string{"1password"}
+}
+
+// SecretRefs is the list of refs under one [secrets] provider key. A config
+// file may give a string for one ref or an array of strings for any number;
+// Save always writes an array.
+type SecretRefs []string
+
+// UnmarshalTOML accepts a string or an array of strings.
+func (r *SecretRefs) UnmarshalTOML(data any) error {
+	switch v := data.(type) {
+	case string:
+		*r = SecretRefs{v}
+		return nil
+	case []any:
+		refs := make(SecretRefs, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("secrets refs must be strings, got %T", item)
+			}
+			refs = append(refs, s)
+		}
+		*r = refs
+		return nil
+	default:
+		return fmt.Errorf("secrets value must be a string or an array of strings, got %T", data)
+	}
 }
 
 // envVarNameRegexp matches a valid POSIX environment variable name.
 var envVarNameRegexp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// ValidEnvVarName reports whether name is a valid POSIX environment
+// variable name: [A-Za-z_][A-Za-z0-9_]*.
+func ValidEnvVarName(name string) bool {
+	return envVarNameRegexp.MatchString(name)
+}
 
 // memoryRegexp matches a memory size in the subset of formats accepted by
 // both docker and Apple's container CLI: a number with a k, m, or g suffix
@@ -136,6 +199,26 @@ func (cfg *Config) RootStepOrigin(i int) StepOrigin {
 	return cfg.Build.RootStepOrigins[i]
 }
 
+// EnvironmentOrigin returns the config file that declared Environment[key],
+// defaulting to OriginProject when origins were never populated — see
+// CustomStepOrigin.
+func (cfg *Config) EnvironmentOrigin(key string) StepOrigin {
+	if origin, ok := cfg.EnvironmentOrigins[key]; ok {
+		return origin
+	}
+	return OriginProject
+}
+
+// SecretOrigin returns the origin of Secrets[provider][i], defaulting to
+// OriginProject when origins were never populated: see CustomStepOrigin.
+func (cfg *Config) SecretOrigin(provider string, i int) StepOrigin {
+	origins := cfg.SecretOrigins[provider]
+	if i < 0 || i >= len(origins) {
+		return OriginProject
+	}
+	return origins[i]
+}
+
 // Volume represents an additional volume mount.
 type Volume struct {
 	Host      string `toml:"host"`
@@ -226,14 +309,18 @@ func GlobalCommonDir() (string, error) {
 
 // Load loads and merges the global and project configs.
 // It also handles migration from the old ccodolo.config format.
+//
+// A missing file is an empty config. A file that exists but cannot be read
+// or parsed, or holds a key ccodolo does not know, is an error: skipping it
+// would drop every setting in the file without a word.
 func Load(projectPath string) (*Config, error) {
 	globalPath, err := GlobalConfigPath()
 	if err != nil {
 		return nil, err
 	}
-	global, _ := loadFile(globalPath)
-	if global == nil {
-		global = &Config{}
+	global, err := loadFileIfExists(globalPath)
+	if err != nil {
+		return nil, err
 	}
 
 	// Try migration for the project config.
@@ -244,9 +331,9 @@ func Load(projectPath string) (*Config, error) {
 		}
 	}
 
-	project, _ := loadFile(projectToml)
-	if project == nil {
-		project = &Config{}
+	project, err := loadFileIfExists(projectToml)
+	if err != nil {
+		return nil, err
 	}
 
 	// Check for stale old config.
@@ -264,25 +351,38 @@ func Load(projectPath string) (*Config, error) {
 // LoadProjectOnly loads only the project-level config, without merging global.
 // Returns an empty Config if the project config file doesn't exist.
 func LoadProjectOnly(projectPath string) (*Config, error) {
-	cfg, err := loadFile(ProjectConfigPath(projectPath))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Config{}, nil
-		}
-		return nil, err
-	}
-	return cfg, nil
+	return loadFileIfExists(ProjectConfigPath(projectPath))
 }
 
-// loadFile loads a single TOML config file.
+// loadFileIfExists is loadFile, except that a missing file is an empty
+// Config.
+func loadFileIfExists(path string) (*Config, error) {
+	cfg, err := loadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return &Config{}, nil
+	}
+	return cfg, err
+}
+
+// loadFile loads a single TOML config file. A key that maps to no Config
+// field is an error, so a typo such as [secret] for [secrets] is reported
+// rather than ignored.
 func loadFile(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	var cfg Config
-	if err := toml.Unmarshal(data, &cfg); err != nil {
+	md, err := toml.Decode(string(data), &cfg)
+	if err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if undecoded := md.Undecoded(); len(undecoded) > 0 {
+		keys := make([]string, len(undecoded))
+		for i, k := range undecoded {
+			keys[i] = k.String()
+		}
+		return nil, fmt.Errorf("parsing %s: unknown keys: %s", path, strings.Join(keys, ", "))
 	}
 	return &cfg, nil
 }
@@ -318,6 +418,7 @@ func Save(cfg *Config, path string) error {
 // - volumes: union (project overrides if same container path)
 // - environment: merged (project keys override global)
 // - passthrough_vars: union (deduplicated, preserves order; global entries first)
+// - secrets: per provider, global refs then project refs (a ref in both kept once; an empty project list turns the provider off)
 func Merge(global, project *Config) *Config {
 	result := &Config{}
 
@@ -392,16 +493,21 @@ func Merge(global, project *Config) *Config {
 		result.Volumes = append(result.Volumes, volMap[cp])
 	}
 
-	// Environment: merged, project overrides.
+	// Environment: merged, project overrides. Origins record which file
+	// each surviving key came from.
 	result.Environment = make(map[string]string)
+	result.EnvironmentOrigins = make(map[string]StepOrigin)
 	for k, v := range global.Environment {
 		result.Environment[k] = v
+		result.EnvironmentOrigins[k] = OriginGlobal
 	}
 	for k, v := range project.Environment {
 		result.Environment[k] = v
+		result.EnvironmentOrigins[k] = OriginProject
 	}
 	if len(result.Environment) == 0 {
 		result.Environment = nil
+		result.EnvironmentOrigins = nil
 	}
 
 	// PassthroughVars: union, preserving order, global entries first.
@@ -416,6 +522,37 @@ func Merge(global, project *Config) *Config {
 		if !seen[name] {
 			seen[name] = true
 			result.PassthroughVars = append(result.PassthroughVars, name)
+		}
+	}
+
+	// Secrets: per provider, the global refs then the project refs, with a
+	// ref listed in both kept once, as a project ref. Origins run in
+	// lockstep, so a project secret can later override a global secret of
+	// the same name (see secrets.CheckConflicts). Presence is what counts,
+	// not length: an empty project list is kept, and turns the provider
+	// off, including its global refs.
+	if len(global.Secrets)+len(project.Secrets) > 0 {
+		result.Secrets = make(map[string]SecretRefs)
+		result.SecretOrigins = make(map[string][]StepOrigin)
+		for provider, refs := range global.Secrets {
+			projectRefs, inProject := project.Secrets[provider]
+			if inProject && len(projectRefs) == 0 {
+				continue
+			}
+			for _, ref := range refs {
+				if slices.Contains(projectRefs, ref) {
+					continue
+				}
+				result.Secrets[provider] = append(result.Secrets[provider], ref)
+				result.SecretOrigins[provider] = append(result.SecretOrigins[provider], OriginGlobal)
+			}
+		}
+		for provider, refs := range project.Secrets {
+			result.Secrets[provider] = append(SecretRefs{}, result.Secrets[provider]...)
+			result.Secrets[provider] = append(result.Secrets[provider], refs...)
+			for range refs {
+				result.SecretOrigins[provider] = append(result.SecretOrigins[provider], OriginProject)
+			}
 		}
 	}
 
@@ -471,6 +608,25 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("duplicate passthrough_vars entry %q", name)
 		}
 		seenPassthrough[name] = true
+	}
+
+	// Whether a provider is compiled into this build is deliberately not
+	// checked here: that waits until a container is about to launch, so a
+	// config with [secrets] validates in a default build and in CI.
+	for _, provider := range slices.Sorted(maps.Keys(cfg.Secrets)) {
+		if !slices.Contains(SecretProviderNames(), provider) {
+			return fmt.Errorf("unknown secrets provider %q, must be one of: %v", provider, SecretProviderNames())
+		}
+		seenRefs := make(map[string]bool)
+		for _, ref := range cfg.Secrets[provider] {
+			if strings.TrimSpace(ref) == "" {
+				return fmt.Errorf("empty ref under [secrets] %s", provider)
+			}
+			if seenRefs[ref] {
+				return fmt.Errorf("duplicate ref %q under [secrets] %s", ref, provider)
+			}
+			seenRefs[ref] = true
+		}
 	}
 
 	return nil

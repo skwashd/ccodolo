@@ -14,7 +14,11 @@ import (
 // execve (syscall.Exec returns EWINDOWS) for the replacement exec_unix.go
 // does. It returns only if the child could not be started; otherwise it
 // exits with the child's status.
-func execCLI(r Runtime, args []string) error {
+//
+// extraEnv is NAME=value entries (secrets) for the child's environment
+// only. ccodolo's own environment is never modified, and LookPath runs
+// against it unchanged.
+func execCLI(r Runtime, args []string, extraEnv []string) error {
 	bin := r.Binary()
 	path, err := exec.LookPath(bin)
 	if err != nil {
@@ -26,8 +30,13 @@ func execCLI(r Runtime, args []string) error {
 	// files through as handles rather than pumping them through pipes, so
 	// docker.exe can put the console into raw mode and `-it` sees a TTY.
 	// cmd.Env is left nil so the child inherits our environment, which the
-	// bare `-e NAME` passthrough entries in runArgs rely on.
+	// bare `-e NAME` passthrough entries in runArgs rely on. It is set only
+	// when there are secrets to add, so a launch without them behaves
+	// exactly as it did before secrets existed.
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if len(extraEnv) > 0 {
+		cmd.Env = mergeEnv(os.Environ(), extraEnv)
+	}
 
 	// Ctrl+C reaches every process on the console. Swallow it here so docker
 	// and the agent inside the container get to handle it. Not signal.Ignore:
