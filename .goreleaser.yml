@@ -79,11 +79,16 @@ builds:
           - -X main.version={{.Version}}
           - -X main.commit={{.Commit}}
           - -X main.date={{.Date}}
+      # On arm64, Go's runtime/cgo also links -framework CoreFoundation.
+      # If that link fails, go build marks runtime/cgo as needing external
+      # linking and -linkmode=internal is refused, so -F points at a stub
+      # framework. The path must be absolute: go runs that link from GOROOT.
       - goos: darwin
         goarch: arm64
         env:
           - CGO_ENABLED=1
           - CC=zig cc -target aarch64-macos
+          - CGO_LDFLAGS=-F{{ abs "release/macos-frameworks" }}
         ldflags:
           - -s -w
           - -linkmode=internal
