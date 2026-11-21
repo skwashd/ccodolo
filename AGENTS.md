@@ -20,17 +20,18 @@ ccodolo/
 │   └── workflows/
 │       ├── release.yml              # goreleaser (triggered by v* tags)
 │       ├── updates.yml              # daily agent + tool version bumps (opens PRs)
-│       ├── validate.yml             # go vet, go test, golangci-lint, cross-platform build, docker image smoke test
+│       ├── validate.yml             # go vet, go test, golangci-lint (default and secrets_1password), cross-platform build, ccodolo-1password snapshot build, docker image smoke test
 │       └── zizmor.yml               # GitHub Actions security scanning
 ├── .golangci.yml                    # Default linters + gofmt as a formatter check
-├── .goreleaser.yml                  # Cross-platform binaries + checksums + build attestation
+├── .goreleaser.yml                  # Cross-platform binaries (ccodolo and ccodolo-1password) + checksums + build attestation
 ├── go.mod / go.sum
 ├── main.go                          # Entrypoint → cmd.Execute()
 ├── cmd/
-│   ├── root.go                      # cobra root command, flags, main run() logic, TUI
+│   ├── root.go                      # cobra root command, flags, main run() logic, secrets fetch, TUI
 │   ├── dashboard.go                 # dashboard subcommand; deprecated --dashboard flag warning
 │   ├── repair.go                    # repair-worktrees subcommand (host-side git worktree repair)
-│   └── version.go                   # version subcommand
+│   ├── secrets_test.go              # --secrets/--no-secrets and launch ordering, through the runRoot seams
+│   └── version.go                   # version subcommand (also lists compiled-in secrets providers)
 ├── internal/
 │   ├── agent/
 │   │   ├── agent.go                 # Agent enum, metadata registry
@@ -59,7 +60,7 @@ ccodolo/
 │   │   ├── hash_test.go
 │   │   ├── hooks.go                 # Host-side startup-hook pre-flight warning
 │   │   ├── hooks_test.go
-│   │   ├── run.go                   # docker run / docker exec argv (--mount binds, env, TERM defaults)
+│   │   ├── run.go                   # docker run / docker exec argv (--mount binds, env, secrets, TERM defaults), mergeEnv
 │   │   ├── run_test.go
 │   │   ├── runtime.go               # Runtime enum (docker/apple), host checks
 │   │   ├── runtime_test.go
@@ -75,6 +76,13 @@ ccodolo/
 │   │   ├── project_test.go
 │   │   ├── setup.go                 # Agent-specific JSON config (copilot/kiro)
 │   │   └── setup_test.go
+│   ├── secrets/
+│   │   ├── secrets.go               # Provider interface, registry, known providers, spec parsing
+│   │   ├── secrets_test.go
+│   │   ├── inject.go                # Resolve (fetch with timeout/cancel), name and conflict checks
+│   │   ├── inject_test.go
+│   │   ├── onepassword.go           # 1Password provider; only built with -tags secrets_1password
+│   │   └── onepassword_test.go      # same tag; no live SDK call
 │   ├── tool/
 │   │   ├── custom_tools_test.go
 │   │   ├── readme_test.go           # Fails when the README Dev Tools table drifts from the catalog
@@ -118,6 +126,12 @@ go vet ./...
 go test ./...
 golangci-lint run ./...
 GOOS=windows go build -o /dev/null ./...   # the binary ships for Windows; catch unix-only imports here
+
+# The same again with the 1Password provider compiled in. Without the tag,
+# internal/secrets/onepassword.go is never compiled, tested or linted.
+go vet -tags=secrets_1password ./...
+go test -tags=secrets_1password ./...
+golangci-lint run --build-tags=secrets_1password ./...
 ```
 
 ### Architecture Notes
@@ -126,6 +140,10 @@ GOOS=windows go build -o /dev/null ./...   # the binary ships for Windows; catch
 - `execCLI` (hand the terminal to `docker`/`container`) is split by build tag. `exec_unix.go` replaces the process with execve — this is load-bearing, not a style choice: running the CLI as a child with forwarded stdio made agent TUIs unresponsive under Ghostty ([#29](https://github.com/skwashd/ccodolo/issues/29), commit `559c549`). Do not "unify" it back to `exec.Command`. `exec_windows.go` has no execve to use and runs a child; it is the one place that class of bug can recur, and CI cannot exercise it (see CI/CD), so a real Windows launch is part of the release check
 - Host paths and container paths are different things: container paths are always Linux paths, so inspect them with `path`, never `path/filepath` (`filepath.IsAbs("/home/coder")` is false on Windows). Host paths go through `filepath`. Bind mounts use `--mount type=bind,source=,target=` rather than `-v` because a Windows drive letter makes the colon form ambiguous, and both backends accept the same keys
 - `internal/docker` supports two container backends via the `Runtime` enum: `docker` (default) and `apple` (experimental, Apple's `container` CLI on macOS 26/Apple Silicon, opted into via `runtime = "apple"` in ccodolo.toml). The apple path cannot run in CI, so backend argv construction must stay in pure, unit-tested functions (`buildArgs`, `runArgs`, `parse*ContainerList`, `matchContainer`)
+- Secrets providers are opt-in at build time. The convention is one build tag and one release build per provider: `secrets_1password` and `ccodolo-1password` today. A tagged provider file only calls `secrets.Register` from `init`; the registry, spec parsing, fetch and conflict checks in `internal/secrets` are always built and must not import a provider SDK. A new provider adds a tagged file, an entry in `knownProviders` (`internal/secrets/secrets.go`) and in `config.SecretProviderNames` (a test keeps the two in step), a goreleaser build, and the tagged runs in `validate.yml`. A default build must still be able to validate a config that has `[secrets]`, and to run `--exec` and `--build-only` against it: `cmd/root.go` calls `secrets.Lookup` only when a container is about to launch
+- 1Password is a separate build, not part of the default one, because the SDK links its 9.5 MB WASM core even though desktop-app mode never uses it: the stripped binary goes from about 8 MB to about 26 MB. Desktop-app mode also needs cgo on macOS and Linux (the SDK `dlopen`s the app's `libop_sdk_ipc_client`), and the default build is cgo-free
+- The macOS `ccodolo-1password` builds link with `-linkmode=internal`. They are cross-compiled on Linux with `zig cc`, and zig has no macOS SDK stubs, so external linking fails on `-lresolv`, CoreFoundation and Security; Go's internal linker only records those system library paths. Do not remove the flag without a macOS SDK on the runner
+- Secret values travel in one way only: `docker.Run` adds them to the environment handed to the runtime CLI (`execCLI`'s `extraEnv`, merged by `mergeEnv`) and `runArgs` emits a bare `-e NAME`. `runArgs` is given names, never values, so a value cannot reach argv. Do not `os.Setenv` them, write them to a file, or print them in an error. `passthrough_vars` uses the same bare `-e NAME` on both runtimes
 - Each image contains exactly one agent — no start-agent dispatch script
 - `embedded/scripts/session.sh` is PID 1 (the startup runner execs it) and runs the agent in the `agent` tmux session; user-facing behaviour: see [README → Sessions and Dashboard](README.md#sessions-and-dashboard). Its trap/background-`wait` shape is load-bearing: PID 1 has no default SIGTERM action, and sh defers traps until a foreground child exits, so a foreground wait would make `docker stop` hang until SIGKILL. `validate.yml` smoke-tests the exit status and stop latency, the only coverage of the tmux path
 - Every tmux call from the host passes `-f /etc/ccodolo/tmux.conf`: whichever call starts the server decides its config, and Ctrl+] detaching depends on it
@@ -151,11 +169,11 @@ CLI flags are documented in [README → Command / Options](README.md#options). F
 
 Before committing:
 
-1. **Go validation**: `go vet ./...`, `go test ./...`, `golangci-lint run ./...`
+1. **Go validation**: `go vet ./...`, `go test ./...`, `golangci-lint run ./...`, then all three again with the `secrets_1password` tag (see Go Code Validation)
 2. **Build test**: `go build -o /dev/null .`
 3. **Runtime test**: Create test project and verify agent launches
 4. **Multi-agent test**: Test with 2+ agents if touching agent selection logic
-5. **Windows**: CI runs vet/test/lint on `windows-latest` but cannot launch a Linux container there. A change to `exec_windows.go`, the mount argv, or TTY detection needs a manual launch on a Windows machine with Docker Desktop — including typing into the agent TUI (the #29 symptom)
+5. **Windows**: CI runs vet/test/lint on `windows-latest` but cannot launch a Linux container there. A change to `exec_windows.go`, the mount argv, TTY detection, or the environment handed to the runtime CLI needs a manual launch on a Windows machine with Docker Desktop — including typing into the agent TUI (the #29 symptom)
 
 ```bash
 # Quick test flow
@@ -186,7 +204,7 @@ exit
 
 ## Key Constraints
 
-- Host env vars are not forwarded by default — use `passthrough_vars` (see [README → Passthrough env vars](README.md#passthrough-env-vars))
+- Host env vars are not forwarded by default — use `passthrough_vars` (see [README → Passthrough env vars](README.md#passthrough-env-vars)), or `[secrets]` to fetch them from a secrets manager (see [README → Secrets](README.md#secrets))
 - Both zsh and bash must have feature parity (see [README → Shell Support](README.md#shell-support))
 - Project isolation is critical - test that configs don't leak between projects
 - Custom steps must be RUN/COPY/ADD only (squash constraint — other instructions are lost in the `FROM scratch` layer)
@@ -194,8 +212,8 @@ exit
 
 ## CI/CD
 
-- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint` on Ubuntu; the same (minus `-race`) on `windows-latest`, which is the only lint coverage `exec_windows.go` gets; a cross-platform build matrix (`linux,darwin,windows` × `amd64,arm64`); and a Docker image smoke test that builds a `claude` + node/go/python image via `ccodolo --build-only` and runs it to verify the toolchain is launchable inside the squashed image. The smoke test stays on Ubuntu for good: GitHub's Windows runners have no nested virtualisation, so they cannot run Linux containers
-- **release.yml**: Triggered by `v*` tags — runs goreleaser to build cross-platform binaries + `checksums.txt`, and attests the checksums (`actions/attest`); artifacts published to GitHub releases
+- **validate.yml**: Runs on PRs and non-main pushes — `go vet`, `go test -race`, `golangci-lint` on Ubuntu; the same (minus `-race`) on `windows-latest`, which is the only lint coverage `exec_windows.go` gets; all of those a second time with `-tags secrets_1password`, the only coverage `onepassword.go` gets; a cgo-free cross-platform build matrix (`linux,darwin,windows` × `amd64,arm64`); a `Build (1password)` job that installs zig and runs `goreleaser build --snapshot --id ccodolo-1password`, which cross-compiles that build's six targets with the real release config; and a Docker image smoke test that builds a `claude` + node/go/python image via `ccodolo --build-only` and runs it to verify the toolchain is launchable inside the squashed image. The smoke test stays on Ubuntu for good: GitHub's Windows runners have no nested virtualisation, so they cannot run Linux containers
+- **release.yml**: Triggered by `v*` tags — installs zig (the C compiler for the cgo targets of `ccodolo-1password`; pinned by commit SHA, keep the version in step with validate.yml), then runs goreleaser to build cross-platform binaries for both builds + `checksums.txt`, and attests the checksums (`actions/attest`); artifacts published to GitHub releases
 - **zizmor.yml**: GitHub Actions security scanning
 - **updates.yml**: Daily cron (`7 20 * * *`) — two jobs:
   - `update` checks npm for new agent versions, opens one combined PR for minor/patch bumps and a separate PR per major
@@ -232,6 +250,7 @@ go run ./internal/updater -allow-unverified
 - [ ] `go vet ./...` passes
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run ./...` passes
+- [ ] The same three pass with the `secrets_1password` tag
 - [ ] `GOOS=windows go build -o /dev/null ./...` passes
 - [ ] Tested with at least one agent end-to-end
 - [ ] README.md updated if adding features/tools
