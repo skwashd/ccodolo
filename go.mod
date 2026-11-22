@@ -9,7 +9,7 @@ require (
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/1password/onepassword-sdk-go v0.4.1
 	github.com/BurntSushi/toml v1.6.0
-	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/spf13/cobra v1.10.2
 )
