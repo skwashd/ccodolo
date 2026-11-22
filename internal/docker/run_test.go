@@ -11,6 +11,7 @@ import (
 
 	"github.com/skwashd/ccodolo/internal/agent"
 	"github.com/skwashd/ccodolo/internal/config"
+	"github.com/skwashd/ccodolo/internal/secrets"
 )
 
 // runArgsFixture builds a claude project dir (with the .claude.json extra
@@ -57,7 +58,7 @@ func runArgsFixture(t *testing.T, rt Runtime, memory string) (args []string, pro
 
 	args, err = runArgs(rt, cfg, meta, "proj", projectPath, workdir,
 		"test-name", "/workspace/proj/wd", "ccodolo:proj-claude-abcd1234",
-		[]string{"--resume"})
+		nil, []string{"--resume"})
 	if err != nil {
 		t.Fatalf("runArgs error: %v", err)
 	}
@@ -122,15 +123,23 @@ func TestRunArgsDocker(t *testing.T) {
 	}
 }
 
-func TestRunArgsApplePassthroughResolved(t *testing.T) {
+// Both runtimes take a bare -e NAME for passthrough_vars, so the host value
+// never appears in argv (and so never in ps).
+func TestRunArgsApplePassthroughBareName(t *testing.T) {
 	args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "")
-	want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", defaultAppleMemory)
+	want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET", defaultAppleMemory)
 	if !reflect.DeepEqual(args, want) {
 		t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 	}
-	for i, a := range args {
-		if a == "CCODOLO_TEST_SET" {
-			t.Errorf("apple runtime should not emit bare passthrough name (arg %d)", i)
+}
+
+func TestRunArgsPassthroughValueNotInArgv(t *testing.T) {
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		args, _, _ := runArgsFixture(t, rt, "")
+		for i, a := range args {
+			if strings.Contains(a, "sekrit") {
+				t.Errorf("%s: passthrough value leaked into argv (arg %d: %q)", rt, i, a)
+			}
 		}
 	}
 }
@@ -146,7 +155,7 @@ func TestRunArgsMemory(t *testing.T) {
 
 	t.Run("apple configured overrides default", func(t *testing.T) {
 		args, projectPath, workdir := runArgsFixture(t, RuntimeApple, "2g")
-		want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET=sekrit", "2g")
+		want := expectedRunArgs(RuntimeApple, projectPath, workdir, "CCODOLO_TEST_SET", "2g")
 		if !reflect.DeepEqual(args, want) {
 			t.Errorf("runArgs mismatch:\n got: %q\nwant: %q", args, want)
 		}
@@ -164,7 +173,7 @@ func TestRunArgsWindowsTerminalDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	args, err := runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta, "p",
-		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil, nil)
 	if err != nil {
 		t.Fatalf("runArgs error: %v", err)
 	}
@@ -177,7 +186,7 @@ func TestRunArgsWindowsTerminalDefaults(t *testing.T) {
 	// An explicit host value still wins over the fallback.
 	t.Setenv("TERM", "xterm-ghostty")
 	args, err = runArgs(RuntimeDocker, &config.Config{Agent: "claude"}, meta, "p",
-		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+		t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil, nil)
 	if err != nil {
 		t.Fatalf("runArgs error: %v", err)
 	}
@@ -264,7 +273,7 @@ func TestRunArgsRejectsCommaInVolumePath(t *testing.T) {
 		Agent:   "claude",
 		Volumes: []config.Volume{{Host: "/srv/a,b", Container: "/data"}},
 	}
-	_, err = runArgs(RuntimeDocker, cfg, meta, "p", t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+	_, err = runArgs(RuntimeDocker, cfg, meta, "p", t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "/srv/a,b") {
 		t.Errorf("expected error naming the offending path, got %v", err)
 	}
@@ -374,7 +383,7 @@ func TestRunArgsTmuxOptOut(t *testing.T) {
 	off := false
 	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
 		args, err := runArgs(rt, &config.Config{Agent: "claude", Tmux: &off}, meta, "p",
-			t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil)
+			t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", nil, nil)
 		if err != nil {
 			t.Fatalf("runArgs error: %v", err)
 		}
@@ -410,5 +419,171 @@ func TestContainerName(t *testing.T) {
 	// --exec finds the container by the namespace prefix.
 	if ns := containerNamespace("ccodolo", workdir); !strings.HasPrefix(got, ns) {
 		t.Errorf("name %q does not start with namespace %q", got, ns)
+	}
+}
+
+// Secrets reach the container as a bare -e NAME on both runtimes. runArgs
+// is only given names, so a value cannot end up in argv.
+func TestRunArgsSecrets(t *testing.T) {
+	meta, err := agent.Get(agent.Claude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("COLORTERM", "")
+	t.Setenv("WT_SESSION", "")
+	t.Setenv("CCODOLO_TEST_SET", "from-host")
+
+	cfg := &config.Config{
+		Agent:           "claude",
+		Environment:     map[string]string{"FOO": "bar"},
+		PassthroughVars: []string{"CCODOLO_TEST_SET"},
+	}
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		args, err := runArgs(rt, cfg, meta, "p", t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img",
+			[]string{"API_KEY", "DB_PASSWORD"}, []string{"--resume"})
+		if err != nil {
+			t.Fatalf("%s: runArgs error: %v", rt, err)
+		}
+		// Everything from the first -e on, in order.
+		first := slices.Index(args, "-e")
+		if first < 0 {
+			t.Fatalf("%s: no -e in args: %q", rt, args)
+		}
+		want := []string{
+			"-e", "FOO=bar",
+			"-e", "CCODOLO_TEST_SET",
+			"-e", "API_KEY",
+			"-e", "DB_PASSWORD",
+			"-e", "TERM=xterm-256color",
+			"img", "--resume",
+		}
+		if got := args[first:]; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: env args mismatch:\n got: %q\nwant: %q", rt, got, want)
+		}
+	}
+}
+
+// A secret named TERM or COLORTERM wins over the host default, the same as
+// an [environment] or passthrough_vars entry does.
+func TestRunArgsSecretSkipsTermDefault(t *testing.T) {
+	meta, err := agent.Get(agent.Claude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("COLORTERM", "truecolor")
+	t.Setenv("WT_SESSION", "")
+
+	for _, rt := range []Runtime{RuntimeDocker, RuntimeApple} {
+		args, err := runArgs(rt, &config.Config{Agent: "claude"}, meta, "p",
+			t.TempDir(), t.TempDir(), "n", "/workspace/p/wd", "img", []string{"TERM"}, nil)
+		if err != nil {
+			t.Fatalf("%s: runArgs error: %v", rt, err)
+		}
+		if slices.Contains(args, "TERM=xterm-256color") {
+			t.Errorf("%s: host TERM default emitted although a secret sets TERM: %q", rt, args)
+		}
+		if i := slices.Index(args, "TERM"); i < 1 || args[i-1] != "-e" {
+			t.Errorf("%s: expected a bare -e TERM for the secret, got %q", rt, args)
+		}
+		if !slices.Contains(args, "COLORTERM=truecolor") {
+			t.Errorf("%s: COLORTERM default should be unaffected, got %q", rt, args)
+		}
+	}
+}
+
+func TestSecretEnv(t *testing.T) {
+	if got := secretEnv(nil); got != nil {
+		t.Errorf("secretEnv(nil) = %q, want nil so execCLI leaves the environment alone", got)
+	}
+	got := secretEnv([]secrets.Var{{Name: "A", Value: "1"}, {Name: "EMPTY", Value: ""}, {Name: "EQ", Value: "a=b"}})
+	want := []string{"A=1", "EMPTY=", "EQ=a=b"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("secretEnv = %q, want %q", got, want)
+	}
+}
+
+func TestMergeEnv(t *testing.T) {
+	tests := []struct {
+		name     string
+		base     []string
+		extra    []string
+		foldCase bool
+		want     []string
+	}{
+		{
+			name:  "appends new names",
+			base:  []string{"A=1", "B=2"},
+			extra: []string{"C=3"},
+			want:  []string{"A=1", "B=2", "C=3"},
+		},
+		{
+			name:  "replaces in place instead of duplicating",
+			base:  []string{"A=1", "B=2", "C=3"},
+			extra: []string{"B=secret"},
+			want:  []string{"A=1", "B=secret", "C=3"},
+		},
+		{
+			name:  "drops later duplicates already in base",
+			base:  []string{"A=1", "B=2", "B=3"},
+			extra: []string{"B=secret"},
+			want:  []string{"A=1", "B=secret"},
+		},
+		{
+			name:  "last extra entry wins",
+			base:  []string{"A=1"},
+			extra: []string{"B=first", "B=second"},
+			want:  []string{"A=1", "B=second"},
+		},
+		{
+			name:  "empty value still replaces",
+			base:  []string{"A=1"},
+			extra: []string{"A="},
+			want:  []string{"A="},
+		},
+		{
+			name:  "value containing equals",
+			base:  []string{"A=x=y"},
+			extra: []string{"A=p=q"},
+			want:  []string{"A=p=q"},
+		},
+		{
+			name:  "case matters off Windows",
+			base:  []string{"Path=/bin"},
+			extra: []string{"PATH=/secret"},
+			want:  []string{"Path=/bin", "PATH=/secret"},
+		},
+		{
+			name:     "case is ignored on Windows",
+			base:     []string{"Path=C:\\Windows", "B=2"},
+			extra:    []string{"PATH=secret"},
+			foldCase: true,
+			want:     []string{"PATH=secret", "B=2"},
+		},
+		{
+			name:     "Windows drive entries are left alone",
+			base:     []string{"=C:=C:\\proj", "A=1"},
+			extra:    []string{"C=3"},
+			foldCase: true,
+			want:     []string{"=C:=C:\\proj", "A=1", "C=3"},
+		},
+		{
+			name: "no extra returns base unchanged",
+			base: []string{"A=1"},
+			want: []string{"A=1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := slices.Clone(tt.base)
+			got := mergeEnvFold(tt.base, tt.extra, tt.foldCase)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("mergeEnvFold = %q, want %q", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.base, base) {
+				t.Errorf("base was modified: %q", tt.base)
+			}
+		})
 	}
 }

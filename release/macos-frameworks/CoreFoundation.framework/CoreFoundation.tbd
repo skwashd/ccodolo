@@ -1,0 +1,11 @@
+# A link-time stand-in for CoreFoundation, for cross-compiling the macOS
+# arm64 build of ccodolo-1password with zig, which ships no macOS
+# frameworks. Go's runtime/cgo links -framework CoreFoundation on
+# darwin/arm64 but only calls it on iOS, so no symbols are needed: the link
+# only has to find the framework. The binary loads the real one from
+# install-name. See the darwin/arm64 override in .goreleaser.yml.
+--- !tapi-tbd
+tbd-version:     4
+targets:         [ arm64-macos ]
+install-name:    '/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation'
+...

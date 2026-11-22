@@ -28,9 +28,92 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
 
+  # The same binary with the 1Password secrets provider compiled in (see
+  # internal/secrets). It is a separate build because the SDK adds about
+  # 18 MB and its desktop-app integration needs cgo on macOS and Linux.
+  # Each new secrets provider adds one more build like this one.
+  #
+  # zig cc cross-compiles every cgo target from the one Linux runner;
+  # release.yml and validate.yml install it. Overrides replace ldflags
+  # rather than adding to them, so the darwin ones repeat the list.
+  - id: ccodolo-1password
+    binary: ccodolo
+    flags:
+      - -tags=secrets_1password
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    overrides:
+      # glibc 2.28 is the floor the binary is linked against, so it runs on
+      # anything newer.
+      - goos: linux
+        goarch: amd64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target x86_64-linux-gnu.2.28
+      - goos: linux
+        goarch: arm64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target aarch64-linux-gnu.2.28
+      # zig has no macOS SDK stubs, so external linking fails on -lresolv,
+      # CoreFoundation and Security. Go's internal linker only records
+      # those system library paths, which is all the binary needs.
+      - goos: darwin
+        goarch: amd64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target x86_64-macos
+        ldflags:
+          - -s -w
+          - -linkmode=internal
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+      # On arm64, Go's runtime/cgo also links -framework CoreFoundation.
+      # If that link fails, go build marks runtime/cgo as needing external
+      # linking and -linkmode=internal is refused, so -F points at a stub
+      # framework. The path must be absolute: go runs that link from GOROOT.
+      - goos: darwin
+        goarch: arm64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target aarch64-macos
+          - CGO_LDFLAGS=-F{{ abs "release/macos-frameworks" }}
+        ldflags:
+          - -s -w
+          - -linkmode=internal
+          - -X main.version={{.Version}}
+          - -X main.commit={{.Commit}}
+          - -X main.date={{.Date}}
+      # The SDK loads the app's DLL with LoadLibrary: no cgo on Windows.
+      - goos: windows
+        goarch: amd64
+        env:
+          - CGO_ENABLED=0
+      - goos: windows
+        goarch: arm64
+        env:
+          - CGO_ENABLED=0
+
 # GoReleaser's default is tar.gz for every platform, Windows included.
+# ids match artifacts by build id, and a universal binary carries its own
+# id, so each archive lists both or the two builds would mix.
 archives:
-  - formats: [tar.gz]
+  - id: ccodolo
+    ids:
+      - ccodolo
+      - ccodolo-universal
+    formats: [tar.gz]
     # Setting files replaces GoReleaser's default list, so keep LICENSE and
     # README alongside the completions.
     files:
@@ -40,11 +123,32 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+  - id: ccodolo-1password
+    ids:
+      - ccodolo-1password
+      - ccodolo-1password-universal
+    name_template: "ccodolo-1password_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
+# The macOS release must stay universal for the 1Password build too: on
+# Apple Silicon the 1Password app's library is arm64-only, so an x86_64
+# ccodolo under Rosetta cannot load it.
 universal_binaries:
   - id: ccodolo-universal
     ids:
       - ccodolo
+    name_template: "{{ .ProjectName }}"
+    replace: true
+  - id: ccodolo-1password-universal
+    ids:
+      - ccodolo-1password
     name_template: "{{ .ProjectName }}"
     replace: true
 
@@ -53,6 +157,7 @@ notarize:
     - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
       ids:
         - ccodolo-universal
+        - ccodolo-1password-universal
       sign:
         certificate: "{{.Env.MACOS_SIGN_P12}}"
         password: "{{.Env.MACOS_SIGN_PASSWORD}}"
@@ -73,8 +178,14 @@ changelog:
       - "^ci:"
       - "^test:"
 
+# Both casks install a binary named ccodolo, so each conflicts with the
+# other. ids pick the archive, not the build.
 homebrew_casks:
   - name: ccodolo
+    ids:
+      - ccodolo
+    conflicts:
+      - cask: ccodolo-1password
     binaries:
       - ccodolo
     completions:
@@ -88,6 +199,28 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/skwashd/ccodolo"
     description: "Sandboxed Docker containers for running AI coding assistants in YOLO mode"
+    license: "MIT"
+    commit_author:
+      name: goreleaserbot
+      email: skwashd@gmail.com
+  - name: ccodolo-1password
+    ids:
+      - ccodolo-1password
+    conflicts:
+      - cask: ccodolo
+    binaries:
+      - ccodolo
+    completions:
+      bash: completions/ccodolo
+      zsh: completions/_ccodolo
+      fish: completions/ccodolo.fish
+    repository:
+      owner: skwashd
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/skwashd/ccodolo"
+    description: "Sandboxed Docker containers for AI coding assistants, with 1Password secrets"
     license: "MIT"
     commit_author:
       name: goreleaserbot
