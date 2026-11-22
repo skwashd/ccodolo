@@ -531,6 +531,16 @@ Things to know:
 - Intel Macs: the macOS binary is universal and includes an Intel build, but
   nobody has tested it on an Intel Mac.
 
+**Bitwarden is not supported.** The Bitwarden Secrets Manager SDK is not
+open source. Its
+[license](https://github.com/bitwarden/sdk-sm/blob/main/LICENSE) does not
+let the SDK be redistributed, or let an application built with it be offered
+to others. A ccodolo release that included it would break those terms, so
+there is no Bitwarden provider. You can still use Bitwarden secrets: run
+ccodolo under the `bws` CLI, for example
+`bws run --project-id <project-id> -- ccodolo --project my-app`, and list
+the variable names in `passthrough_vars`.
+
 ### What this does and does not protect
 
 This applies to `[environment]`, `passthrough_vars` and `[secrets]` alike.
