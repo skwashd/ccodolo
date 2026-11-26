@@ -306,7 +306,7 @@ var builtinCatalog = []Tool{
 		Name:         "pnpm",
 		Category:     "package-manager",
 		Description:  "pnpm package manager",
-		DefaultTag:   "12.22.0",
+		DefaultTag:   "12.23.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g pnpm@{{.Tag}}",
@@ -468,7 +468,7 @@ var builtinCatalog = []Tool{
 		Name:         "wrangler",
 		Category:     "cloud",
 		Description:  "Cloudflare Workers CLI",
-		DefaultTag:   "4.166.0",
+		DefaultTag:   "4.168.0",
 		Dependencies: []string{"nodejs"},
 		Instructions: []string{
 			"RUN npm install -g wrangler@{{.Tag}}",
@@ -791,7 +791,7 @@ var builtinCatalog = []Tool{
 		Name:        "rumdl",
 		Category:    "utils",
 		Description: "Markdown linter",
-		DefaultTag:  "0.3.5",
+		DefaultTag:  "0.3.6",
 		Instructions: []string{
 			`RUN ARCH=$(dpkg --print-architecture) \` + "\n" +
 				`  && if [ "$ARCH" = "amd64" ]; then ARCH=x86_64; elif [ "$ARCH" = "arm64" ]; then ARCH=aarch64; fi \` + "\n" +
@@ -846,7 +846,7 @@ var builtinCatalog = []Tool{
 		Name:         "yt-dlp",
 		Category:     "utils",
 		Description:  "yt-dlp video downloader",
-		DefaultTag:   "2026.10.26",
+		DefaultTag:   "2026.11.23",
 		Dependencies: []string{"python"},
 		Instructions: []string{
 			`RUN curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/{{.Tag}}/yt-dlp" -o /tmp/yt-dlp \` + "\n" +
@@ -864,7 +864,7 @@ var builtinCatalog = []Tool{
 		Category:    "utils",
 		Description: "GitHub Actions workflow security analyzer",
 		SourceImage: "ghcr.io/zizmorcore/zizmor",
-		DefaultTag:  "1.32.0",
+		DefaultTag:  "1.33.1",
 		Instructions: []string{
 			"COPY --from=%s /usr/bin/zizmor /usr/local/bin/zizmor",
 		},
